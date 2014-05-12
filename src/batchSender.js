@@ -25,7 +25,8 @@ var BatchSender = function(config) {
         keysToIgnore: [],
         minLength: MIN_EVENT_LENGTH,
         maxLength: MAX_EVENT_LENGTH,
-        beaconUrl: "https://trust.f4tech.com/beacon/"
+        beaconUrl: "https://trust.f4tech.com/beacon/",
+        emitWarnings: false
     });
     this._eventQueue = [];
 };
@@ -79,18 +80,24 @@ BatchSender.prototype._getNextBatch = function(forceIncludeAll) {
     var batchObj = {},
         batchString,
         toBeSent = [],
-        url = this._getUrl() + '?';
+        url = this._getUrl() + '?',
+        batchSize = 0;
 
     _.each(this._eventQueue, function(event, currentIndex) {
         var eventCopy = this._appendIndexToKeys(event, currentIndex),
             possibleBatchObj = _.extend(batchObj, eventCopy),
             possibleBatchString = url + this._toQueryString(possibleBatchObj);
 
+        ++batchSize;
+
         if (possibleBatchString.length < this.maxLength) {
             toBeSent.push(event);
             batchString = possibleBatchString;
             batchObj = possibleBatchObj;
         } else {
+            if(batchSize === 1 && this.emitWarnings && window.console && window.console.warn) {
+                console.warn('Client metrics: an event is too big to send', event);
+            }
             return false;
         }
     }, this);

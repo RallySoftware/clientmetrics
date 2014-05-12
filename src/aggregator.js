@@ -66,7 +66,8 @@ var Aggregator = function(config) {
 
     this.sender = this.sender || new BatchSender({
         keysToIgnore: [ 'cmp', 'component' ],
-        beaconUrl: config.beaconUrl
+        beaconUrl: config.beaconUrl,
+        emitWarnings: config.emitWarnings
     });
 
     if (_.isFunction(this.sender.getMaxLength)) {
