@@ -903,7 +903,7 @@ var BatchSender = function(config) {
         keysToIgnore: [],
         minLength: MIN_EVENT_LENGTH,
         maxLength: config.isIE ? MAX_IE_EVENT_LENGTH : MAX_MODERN_BROWSER_EVENT_LENGTH,
-        beaconUrl: "https://trust.f4tech.com/beacon/",
+        beaconUrl: "https://trust.rallydev.com/beacon/",
         emitWarnings: false
     });
     this._eventQueue = [];
@@ -1062,7 +1062,9 @@ BatchSender.prototype._makeGetRequest = function(url) {
 
 module.exports = BatchSender;
 
-},{"./util":5}],"N+UuJT":[function(require,module,exports){
+},{"./util":5}],"RallyMetrics":[function(require,module,exports){
+module.exports=require('eIfTx1');
+},{}],"eIfTx1":[function(require,module,exports){
 module.exports = {
 	"Aggregator": require ("./aggregator")
 	,"BatchSender": require ("./batchSender")
@@ -1070,9 +1072,7 @@ module.exports = {
 	,"WindowErrorListener": require ("./windowErrorListener")
 }
 ;
-},{"./aggregator":1,"./batchSender":2,"./util":5,"./windowErrorListener":6}],"RallyMetrics":[function(require,module,exports){
-module.exports=require('N+UuJT');
-},{}],5:[function(require,module,exports){
+},{"./aggregator":1,"./batchSender":2,"./util":5,"./windowErrorListener":6}],5:[function(require,module,exports){
 (function(){
     var _ = require('underscore');
 
@@ -1178,6 +1178,6 @@ module.exports=require('N+UuJT');
 })();
 
 
-},{"./util":5}]},{},["N+UuJT"])
+},{"./util":5}]},{},["eIfTx1"])
   return require('RallyMetrics');
 }));

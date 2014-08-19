@@ -26,7 +26,7 @@ var BatchSender = function(config) {
         keysToIgnore: [],
         minLength: MIN_EVENT_LENGTH,
         maxLength: config.isIE ? MAX_IE_EVENT_LENGTH : MAX_MODERN_BROWSER_EVENT_LENGTH,
-        beaconUrl: "https://trust.f4tech.com/beacon/",
+        beaconUrl: "https://trust.rallydev.com/beacon/",
         emitWarnings: false
     });
     this._eventQueue = [];
