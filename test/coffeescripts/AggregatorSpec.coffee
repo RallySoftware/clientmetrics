@@ -122,6 +122,20 @@ describe "RallyMetrics.Aggregator", ->
       actionEvent = @findActionEvent()
       expect(actionEvent.hash).to.equal hash
 
+    it "should allow developer to send a startTime", ->
+      aggregator = @createAggregator()
+
+      hash = "/some/hash"
+      startingTime = new Date().getTime()-5000
+      defaultParams = 
+        hash: hash
+        sessionStart: startingTime
+
+      aggregator.startSession "Session 1", defaultParams
+      
+      expect(aggregator._sessionStartTime).to.be.greaterThan 0
+      expect(aggregator._defaultParams.sessionStart).to.equal undefined #don't keep this as a default param
+
   describe '#sendAllRemainingEvents', ->
     it 'should flush the sender', ->
       aggregator = @createAggregator()

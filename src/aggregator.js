@@ -96,10 +96,16 @@ Aggregator.prototype.destroy = function() {
  * Calls a new navigation user action
  * @param status the event's status for each of the pending events
  * @param defaultParams Default parameters that are sent with each request
+ * @param defaultParams.sessionStart start time for this session - defaults 
+ *   to now, but can be set if actual start is before library is initialized
  * @public
  */
 Aggregator.prototype.startSession = function(status, defaultParams) {
     this._pendingEvents = [];
+    if (defaultParams && defaultParams.sessionStart) {
+        this._startingTime = defaultParams.sessionStart;
+        delete defaultParams.sessionStart;
+    }
     this._sessionStartTime = this._getRelativeTime();
     this.sendAllRemainingEvents();
     this._defaultParams = defaultParams;
