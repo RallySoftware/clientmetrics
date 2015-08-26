@@ -107,7 +107,7 @@ Aggregator.prototype.startSession = function(status, defaultParams) {
         this._startingTime = defaultParams.sessionStart;
         delete defaultParams.sessionStart;
     }
-    this._sessionStartTime = this._getRelativeTime();
+    this._sessionStartTime = this.getRelativeTime();
     this.sendAllRemainingEvents();
     this._defaultParams = defaultParams;
 
@@ -122,7 +122,7 @@ Aggregator.prototype.recordAction = function(options) {
     var cmp = options.component;
     delete options.component;
     var traceId = this._getUniqueId();
-    var startTime = this._getRelativeTime(options.startTime);
+    var startTime = this.getRelativeTime(options.startTime);
 
     var action = this._startEvent(_.defaults({
         eType: 'action',
@@ -163,7 +163,7 @@ Aggregator.prototype.recordError = function(errorInfo, miscData) {
             errorMsg = errorMsg.substring(0, this.maxErrorLength);
         }
 
-        var startTime = this._getRelativeTime();
+        var startTime = this.getRelativeTime();
 
         var errorEvent = this._startEvent(_.defaults({
             eType: 'error',
@@ -201,7 +201,7 @@ Aggregator.prototype.recordComponentReady = function(options) {
     var cmpReadyEvent = this._startEvent(_.defaults({
         eType: 'load',
         start: this._sessionStartTime,
-        stop: this._getRelativeTime(options.stopTime),
+        stop: this.getRelativeTime(options.stopTime),
         eId: this._getUniqueId(),
         tId: traceId,
         pId: traceId,
@@ -223,7 +223,7 @@ Aggregator.prototype.startSpan = function(options) {
         return;
     }
 
-    var startTime = this._getRelativeTime(options.startTime);
+    var startTime = this.getRelativeTime(options.startTime);
 
     var eventId = this._getUniqueId();
 
@@ -244,7 +244,7 @@ Aggregator.prototype.startSpan = function(options) {
       data: this._startEvent(event),
       end: function(options) {
           options = options || {};
-          options.stop = aggregator._getRelativeTime(options.stopTime);
+          options.stop = aggregator.getRelativeTime(options.stopTime);
 
           if (aggregator._shouldRecordEvent(this.data, options)) {
               aggregator._finishEvent(this.data, _.extend({
@@ -279,7 +279,7 @@ Aggregator.prototype.beginLoad = function(options) {
         return;
     }
 
-    var startTime = this._getRelativeTime(options.startTime);
+    var startTime = this.getRelativeTime(options.startTime);
 
     var eventId = this._getUniqueId();
     cmp[_currentEventId + 'load'] = eventId;
@@ -328,7 +328,7 @@ Aggregator.prototype.endLoad = function(options) {
         return;
     }
 
-    options.stop = this._getRelativeTime(options.stopTime);
+    options.stop = this.getRelativeTime(options.stopTime);
 
     if (this._shouldRecordEvent(event, options)) {
         this._finishEvent(event, _.extend({
@@ -419,7 +419,7 @@ Aggregator.prototype.endDataRequest = function(requester, xhr, requestId) {
 
         var newEventData = {
             status: 'Ready',
-            stop: this._getRelativeTime()
+            stop: this.getRelativeTime()
         };
         var rallyRequestId = this._getRallyRequestId(xhr);
 
@@ -464,8 +464,17 @@ Aggregator.prototype._getUniqueId = function() {
  * @param {Number} timestamp Timestamp to be converted
  * @private
  */
-Aggregator.prototype._getRelativeTime = function(timestamp) {
+Aggregator.prototype.getRelativeTime = function(timestamp) {
     return (timestamp || new Date().getTime()) - this._startingTime;
+};
+
+/**
+ * Gets the current timestamp relative to the starting time
+ * @param {Number} timestamp Timestamp to be converted
+ * @private
+ */
+Aggregator.prototype.getUnrelativeTime = function(timestamp) {
+    return timestamp + this._startingTime;
 };
 
 /**
@@ -497,12 +506,12 @@ Aggregator.prototype._finishEvent = function(existingEvent, newEventData) {
  * @private
  */
 Aggregator.prototype._startEvent = function(event) {
-    event.bts = new Date().getTime();
     event.tabId = this._browserTabId;
 
     if (!_.isNumber(event.start)) {
-        event.start = this._getRelativeTime();
+        event.start = this.getRelativeTime();
     }
+    event.bts = this.getUnrelativeTime(event.start);
 
     if (event.cmp) {
         var appName = this._getFromHandlers(event.cmp, 'getAppName');

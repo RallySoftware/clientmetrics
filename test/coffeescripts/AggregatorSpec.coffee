@@ -456,6 +456,17 @@ describe "RallyMetrics.Aggregator", ->
 
       expect(traceId).to.match(uuidFormat)
 
+    it "should use the passed-in startTime", ->
+      aggregator = @createAggregator()
+      traceId = aggregator.recordAction
+        component: {}
+        description: "an action"
+        startTime: 100
+
+      span = @findActionEvent()
+      expect(span.start).to.equal(aggregator.getRelativeTime(100))
+      expect(span.bts).to.equal(100)
+
   describe "#beginLoad", ->
     beforeEach ->
       @panel = new Panel()
