@@ -316,26 +316,6 @@ describe "RallyMetrics.Aggregator", ->
         expect(dataEvent.pId).to.match(uuidFormat)
         expect(dataEvent.doge).to.equal("wow")
 
-      it "should allow a traceId to be passed in", ->
-        traceId = uuid.v4()
-        aggregator = @createAggregator()
-        requester = this
-
-        metricsData = aggregator.beginDataRequest(
-          requester: requester
-          url: "someUrl"
-          traceId: traceId
-        )
-
-        aggregator.endDataRequest(
-          requester: requester
-          xhr: @xhrFake
-          requestId: metricsData.requestId
-        )
-
-        dataEvent = @findDataEvent()
-        expect(dataEvent.tId).to.equal(traceId)
-
   describe 'client metric event properties', ->
     beforeEach ->
       @appName = "testAppName"
@@ -493,48 +473,29 @@ describe "RallyMetrics.Aggregator", ->
     beforeEach ->
       @panel = new Panel()
 
-    it "should allow a traceId to be passed in", ->
-      traceId = uuid.v4()
-      aggregator = @createAggregator()
-
-      aggregator.beginLoad(
-        component: @panel
-        traceId: traceId
-        description: "panel loading"
-      )
-      aggregator.endLoad(component: @panel)
-
-      loadEvent = @findLoadEvent()
-      expect(loadEvent.tId).to.equal(traceId)
-
-
   describe "#startSpan", ->
 
     beforeEach ->
       @panel = new Panel()
-
-    it "should allow a traceId to be passed in", ->
-      traceId = uuid.v4()
-      aggregator = @createAggregator()
-
-      span = aggregator.startSpan(
+      @aggregator = @createAggregator()
+      @aggregator.startSession({})
+      @aggregator.recordAction(
         component: @panel
-        traceId: traceId
+        description: 'initial action'
+      )
+    it 'sends the span when it is ended', ->
+      @sentEvents = []
+      span = @aggregator.startSpan(
+        component: @panel
         description: "panel loading"
       )
       span.end()
-
-      loadEvent = @findLoadEvent()
-      expect(loadEvent.tId).to.equal(traceId)
+      expect(@sentEvents.length).to.equal 1
 
     it "should allow a name to be passed in", ->
-      traceId = uuid.v4()
-      aggregator = @createAggregator()
-
-      span = aggregator.startSpan(
+      span = @aggregator.startSpan(
         component: @panel
         name: 'foo'
-        traceId: traceId
         description: "panel loading"
       )
       span.end()
@@ -543,13 +504,9 @@ describe "RallyMetrics.Aggregator", ->
       expect(loadEvent.cmpType).to.equal('foo')
 
     it "should allow the hierarchy to be passed in", ->
-      traceId = uuid.v4()
-      aggregator = @createAggregator()
-
-      span = aggregator.startSpan(
+      span = @aggregator.startSpan(
         component: @panel
         hierarchy: 'foo:bar:baz'
-        traceId: traceId
         description: "panel loading"
       )
       span.end()
@@ -558,13 +515,9 @@ describe "RallyMetrics.Aggregator", ->
       expect(loadEvent.cmpH).to.equal('foo:bar:baz')
 
     it "should allow the parent span id to be passed in", ->
-      traceId = uuid.v4()
-      aggregator = @createAggregator()
-
-      span = aggregator.startSpan(
+      span = @aggregator.startSpan(
         component: @panel
         pId: 'fee-fi-fo-fum'
-        traceId: traceId
         description: "panel loading"
       )
       span.end()
@@ -573,12 +526,8 @@ describe "RallyMetrics.Aggregator", ->
       expect(loadEvent.pId).to.equal('fee-fi-fo-fum')
 
     it "should allow the parent span id to be passed in when ending span", ->
-      traceId = uuid.v4()
-      aggregator = @createAggregator()
-
-      span = aggregator.startSpan(
+      span = @aggregator.startSpan(
         component: @panel
-        traceId: traceId
         description: "panel loading"
       )
       span.end(
@@ -587,6 +536,20 @@ describe "RallyMetrics.Aggregator", ->
 
       loadEvent = @findLoadEvent()
       expect(loadEvent.pId).to.equal('fee-fi-fo-fum')
+
+    it 'should drop event started in previous action', ->
+      span = @aggregator.startSpan(
+        component: @panel
+        description: "panel loading"
+      )
+      @aggregator.recordAction(
+        component: @panel
+        description: 'another action'
+      )
+      @sentEvents = []
+      span.end()
+
+      expect(@sentEvents.length).to.equal 0
 
   describe '#recordError', ->
     it "sends an error event", ->
@@ -652,18 +615,6 @@ describe "RallyMetrics.Aggregator", ->
       errorEvent = @findErrorEvent()
       expect(errorEvent.error).to.equal("an error occured")
       expect(errorEvent.doge).to.equal("wow")
-
-    it "should allow a traceId to be passed in", ->
-      traceId = uuid.v4()
-      aggregator = @createAggregator()
-      aggregator.recordError(
-        errorInfo: "an error occured"
-        traceId: traceId
-      )
-
-      errorEvent = @findErrorEvent()
-      expect(errorEvent.tId).to.equal(traceId)
-
 
   describe "#recordComponentReady", ->
     beforeEach ->
@@ -745,21 +696,6 @@ describe "RallyMetrics.Aggregator", ->
       expect(@sentEvents[1].eType).to.equal "load"
       expect(@sentEvents[0].componentReady).to.equal true
       expect(@sentEvents[1].componentReady).to.equal true
-
-    it "should allow a traceId to be passed in", ->
-      traceId = uuid.v4()
-      @startSession(@aggregator)
-      @aggregator.recordComponentReady(
-        component: @panel
-        traceId: traceId
-      )
-
-      componentReadyEvent = @findComponentReadyEvent()
-
-      expect(componentReadyEvent.tId).to.equal traceId
-      expect(componentReadyEvent.pId).to.equal traceId
-      expect(componentReadyEvent.componentReady).to.equal true
-
 
   describe 'additional parameters', ->
     it "should append guiTestParams to events", ->

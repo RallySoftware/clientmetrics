@@ -57,6 +57,7 @@ var Aggregator = function(config) {
     this._pendingEvents = [];
     this._browserTabId = this._getUniqueId();
     this._startingTime = new Date().getTime();
+    this._sessionId = 1;
     this._loadedComponents = [];
 
     // keep track of how many errors we have reported on, so we
@@ -102,6 +103,9 @@ Aggregator.prototype.destroy = function() {
  * @public
  */
 Aggregator.prototype.startSession = function(status, defaultParams) {
+    if (arguments.length < 2) {
+      defaultParams = status;
+    }
     this._pendingEvents = [];
     if (defaultParams && defaultParams.sessionStart) {
         this._startingTime = defaultParams.sessionStart;
@@ -113,6 +117,7 @@ Aggregator.prototype.startSession = function(status, defaultParams) {
 
     this._errorCount = 0;
     this._loadedComponents = [];
+    this._sessionId++;
 };
 
 /**
@@ -145,15 +150,14 @@ Aggregator.prototype.recordAction = function(options) {
 };
 
 Aggregator.prototype.recordError = function(errorInfo, miscData) {
-    var options, traceId;
+    var options;
     if (_.isObject(errorInfo) && errorInfo.errorInfo) {
         options = errorInfo;
         errorInfo = options.errorInfo;
         miscData = options.miscData;
-        traceId = options.traceId;
     }
 
-    traceId = traceId || this._currentTraceId;
+    var traceId = this._currentTraceId;
 
     if (traceId && this._errorCount < this.errorLimit) {
         ++this._errorCount;
@@ -186,7 +190,7 @@ Aggregator.prototype.recordComponentReady = function(options) {
         return;
     }
 
-    var traceId = options.traceId || this._currentTraceId;
+    var traceId = this._currentTraceId;
     var cmp = options.component,
         cmpHierarchy = options.hierarchy || this._getHierarchyString(cmp);
 
@@ -214,10 +218,23 @@ Aggregator.prototype.recordComponentReady = function(options) {
     this._finishEvent(cmpReadyEvent);
 };
 
+/**
+ * Starts a span and returns an object with the data and a
+ * function to call to end and record the span. Spans that are not
+ * yet ended when a new action is recorded will be dropped.
+ * @param {Object} options Information to add to the span
+ * @param {Object} options.component The component recording the span
+ * @param {String} options.description The description of the load
+ * @param {String} [options.hierarchy] The component hierarchy
+ * @param {String} [options.name] The name of the component. If not passed, will attempt to determine the name
+ * @param {String} [options.type = 'load'] The type of span. One of 'load' or 'dataRequest'
+ * @param {Number} [options.startTime = new Date().getTime()] The start time of the span
+ * @param {Object} [options.miscData] Any other data that should be recorded with the span
+ */
 Aggregator.prototype.startSpan = function(options) {
     var aggregator = this;
     var cmp = options.component;
-    var traceId = options.traceId || this._currentTraceId;
+    var traceId = this._currentTraceId;
 
     if (!traceId) {
         return;
@@ -249,17 +266,15 @@ Aggregator.prototype.startSpan = function(options) {
           if (aggregator._shouldRecordEvent(this.data, options)) {
               aggregator._finishEvent(this.data, _.extend({
                   status: 'Ready'
-              }, options));
+              }, _.omit(options, 'stopTime')));
           }
       }
     };
 };
 
-Aggregator.prototype.endSpan = function(options) {
-};
-
 /**
- * Handles the beginLoad client metrics message. Starts an event
+ * Starts a span of type "load", tracked on the passed-in component.
+ * Calling "endLoad" with the same component will record the span
  * @param {Object} options Information to add to the event
  * @param {Object} options.component The component recording the event
  * @param {Number} [options.startTime = new Date().getTime()] The start time of the event
@@ -268,7 +283,7 @@ Aggregator.prototype.endSpan = function(options) {
  */
 Aggregator.prototype.beginLoad = function(options) {
     var cmp = options.component;
-    var traceId = options.traceId || this._currentTraceId;
+    var traceId = this._currentTraceId;
 
     if (!traceId) {
         return;
@@ -333,7 +348,7 @@ Aggregator.prototype.endLoad = function(options) {
     if (this._shouldRecordEvent(event, options)) {
         this._finishEvent(event, _.extend({
             status: 'Ready'
-        }, options));
+        }, _.omit(options, 'stopTime')));
     }
 };
 
@@ -347,16 +362,15 @@ Aggregator.prototype.endLoad = function(options) {
  * returns undefined if the data request could not be instrumented
  */
 Aggregator.prototype.beginDataRequest = function(requester, url, miscData) {
-    var options, traceId, metricsData;
+    var options, metricsData;
     if (arguments.length === 1) {
         options = arguments[0];
         requester = options.requester;
         url = options.url;
         miscData = options.miscData;
-        traceId = options.traceId;
     }
 
-    traceId = traceId || this._currentTraceId;
+    var traceId = this._currentTraceId;
 
     if (requester && traceId) {
         var eventId = this._getUniqueId();
@@ -501,9 +515,7 @@ Aggregator.prototype.getUnrelativeTime = function(timestamp) {
 Aggregator.prototype._finishEvent = function(existingEvent, newEventData) {
     var event = _.defaults(
         newEventData || {},
-        existingEvent,
-        this._defaultParams,
-        this._guiTestParams
+        existingEvent
     );
 
     this._pendingEvents = _.without(this._pendingEvents, existingEvent);
@@ -532,6 +544,7 @@ Aggregator.prototype._startEvent = function(event) {
             event.appName = appName;
         }
     }
+    _.extend(event, this._guiTestParams, this._defaultParams);
 
     this._pendingEvents.push(event);
 

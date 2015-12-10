@@ -4,6 +4,7 @@
   "description": "Metrics aggregation for Rally Software",
   "main": "builds/rallymetrics.js",
   "scripts": {
+    "build": "grunt build",
     "test": "grunt test"
   },
   "repository": {

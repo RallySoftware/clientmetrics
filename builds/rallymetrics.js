@@ -3,74 +3,53 @@
 //     Copyright (c) 2010-2012 Robert Kieffer
 //     MIT License - http://opensource.org/licenses/mit-license.php
 
-/*global window, require, define */
-(function(_window) {
-  'use strict';
+(function() {
+  var _global = this;
 
   // Unique ID creation requires a high quality random # generator.  We feature
   // detect to determine the best RNG source, normalizing to a function that
   // returns 128-bits of randomness, since that's what's usually required
-  var _rng, _mathRNG, _nodeRNG, _whatwgRNG, _previousRoot;
+  var _rng;
 
-  function setupBrowser() {
-    // Allow for MSIE11 msCrypto
-    var _crypto = _window.crypto || _window.msCrypto;
-
-    if (!_rng && _crypto && _crypto.getRandomValues) {
-      // WHATWG crypto-based RNG - http://wiki.whatwg.org/wiki/Crypto
-      //
-      // Moderately fast, high quality
-      try {
-        var _rnds8 = new Uint8Array(16);
-        _whatwgRNG = _rng = function whatwgRNG() {
-          _crypto.getRandomValues(_rnds8);
-          return _rnds8;
-        };
-        _rng();
-      } catch(e) {}
-    }
-
-    if (!_rng) {
-      // Math.random()-based (RNG)
-      //
-      // If all else fails, use Math.random().  It's fast, but is of unspecified
-      // quality.
-      var  _rnds = new Array(16);
-      _mathRNG = _rng = function() {
-        for (var i = 0, r; i < 16; i++) {
-          if ((i & 0x03) === 0) { r = Math.random() * 0x100000000; }
-          _rnds[i] = r >>> ((i & 0x03) << 3) & 0xff;
-        }
-
-        return _rnds;
-      };
-      if ('undefined' !== typeof console && console.warn) {
-        console.warn("[SECURITY] node-uuid: crypto not usable, falling back to insecure Math.random()");
-      }
-    }
+  // Node.js crypto-based RNG - http://nodejs.org/docs/v0.6.2/api/crypto.html
+  //
+  // Moderately fast, high quality
+  if (typeof(_global.require) == 'function') {
+    try {
+      var _rb = _global.require('crypto').randomBytes;
+      _rng = _rb && function() {return _rb(16);};
+    } catch(e) {}
   }
 
-  function setupNode() {
-    // Node.js crypto-based RNG - http://nodejs.org/docs/v0.6.2/api/crypto.html
+  if (!_rng && _global.crypto && crypto.getRandomValues) {
+    // WHATWG crypto-based RNG - http://wiki.whatwg.org/wiki/Crypto
     //
     // Moderately fast, high quality
-    if ('function' === typeof require) {
-      try {
-        var _rb = require('crypto').randomBytes;
-        _nodeRNG = _rng = _rb && function() {return _rb(16);};
-        _rng();
-      } catch(e) {}
-    }
+    var _rnds8 = new Uint8Array(16);
+    _rng = function whatwgRNG() {
+      crypto.getRandomValues(_rnds8);
+      return _rnds8;
+    };
   }
 
-  if (_window) {
-    setupBrowser();
-  } else {
-    setupNode();
+  if (!_rng) {
+    // Math.random()-based (RNG)
+    //
+    // If all else fails, use Math.random().  It's fast, but is of unspecified
+    // quality.
+    var  _rnds = new Array(16);
+    _rng = function() {
+      for (var i = 0, r; i < 16; i++) {
+        if ((i & 0x03) === 0) r = Math.random() * 0x100000000;
+        _rnds[i] = r >>> ((i & 0x03) << 3) & 0xff;
+      }
+
+      return _rnds;
+    };
   }
 
   // Buffer class to use
-  var BufferClass = ('function' === typeof Buffer) ? Buffer : Array;
+  var BufferClass = typeof(_global.Buffer) == 'function' ? _global.Buffer : Array;
 
   // Maps for number <-> hex string conversion
   var _byteToHex = [];
@@ -139,17 +118,17 @@
 
     options = options || {};
 
-    var clockseq = (options.clockseq != null) ? options.clockseq : _clockseq;
+    var clockseq = options.clockseq != null ? options.clockseq : _clockseq;
 
     // UUID timestamps are 100 nano-second units since the Gregorian epoch,
     // (1582-10-15 00:00).  JSNumbers aren't precise enough for this, so
     // time is handled internally as 'msecs' (integer milliseconds) and 'nsecs'
     // (100-nanoseconds offset from msecs) since unix epoch, 1970-01-01 00:00.
-    var msecs = (options.msecs != null) ? options.msecs : new Date().getTime();
+    var msecs = options.msecs != null ? options.msecs : new Date().getTime();
 
     // Per 4.2.1.2, use count of uuid's generated during the current clock
     // cycle to simulate higher resolution clock
-    var nsecs = (options.nsecs != null) ? options.nsecs : _lastNSecs + 1;
+    var nsecs = options.nsecs != null ? options.nsecs : _lastNSecs + 1;
 
     // Time since last uuid creation (in msecs)
     var dt = (msecs - _lastMSecs) + (nsecs - _lastNSecs)/10000;
@@ -215,8 +194,8 @@
     // Deprecated - 'format' argument, as supported in v1.2
     var i = buf && offset || 0;
 
-    if (typeof(options) === 'string') {
-      buf = (options === 'binary') ? new BufferClass(16) : null;
+    if (typeof(options) == 'string') {
+      buf = options == 'binary' ? new BufferClass(16) : null;
       options = null;
     }
     options = options || {};
@@ -244,32 +223,28 @@
   uuid.parse = parse;
   uuid.unparse = unparse;
   uuid.BufferClass = BufferClass;
-  uuid._rng = _rng;
-  uuid._mathRNG = _mathRNG;
-  uuid._nodeRNG = _nodeRNG;
-  uuid._whatwgRNG = _whatwgRNG;
 
-  if (('undefined' !== typeof module) && module.exports) {
+  if (typeof(module) != 'undefined' && module.exports) {
     // Publish as node.js module
     module.exports = uuid;
-  } else if (typeof define === 'function' && define.amd) {
+  } else  if (typeof define === 'function' && define.amd) {
     // Publish as AMD module
     define(function() {return uuid;});
-
+ 
 
   } else {
     // Publish as global (in browsers)
-    _previousRoot = _window.uuid;
+    var _previousRoot = _global.uuid;
 
     // **`noConflict()` - (browser only) to reset global 'uuid' var**
     uuid.noConflict = function() {
-      _window.uuid = _previousRoot;
+      _global.uuid = _previousRoot;
       return uuid;
     };
 
-    _window.uuid = uuid;
+    _global.uuid = uuid;
   }
-})('undefined' !== typeof window ? window : null);
+}).call(this);
 
 (function(root, factory) {
   if(typeof exports === 'object') {
@@ -343,6 +318,7 @@ var Aggregator = function(config) {
     this._pendingEvents = [];
     this._browserTabId = this._getUniqueId();
     this._startingTime = new Date().getTime();
+    this._sessionId = 1;
     this._loadedComponents = [];
 
     // keep track of how many errors we have reported on, so we
@@ -388,6 +364,9 @@ Aggregator.prototype.destroy = function() {
  * @public
  */
 Aggregator.prototype.startSession = function(status, defaultParams) {
+    if (arguments.length < 2) {
+      defaultParams = status;
+    }
     this._pendingEvents = [];
     if (defaultParams && defaultParams.sessionStart) {
         this._startingTime = defaultParams.sessionStart;
@@ -399,6 +378,7 @@ Aggregator.prototype.startSession = function(status, defaultParams) {
 
     this._errorCount = 0;
     this._loadedComponents = [];
+    this._sessionId++;
 };
 
 /**
@@ -431,15 +411,14 @@ Aggregator.prototype.recordAction = function(options) {
 };
 
 Aggregator.prototype.recordError = function(errorInfo, miscData) {
-    var options, traceId;
+    var options;
     if (_.isObject(errorInfo) && errorInfo.errorInfo) {
         options = errorInfo;
         errorInfo = options.errorInfo;
         miscData = options.miscData;
-        traceId = options.traceId;
     }
 
-    traceId = traceId || this._currentTraceId;
+    var traceId = this._currentTraceId;
 
     if (traceId && this._errorCount < this.errorLimit) {
         ++this._errorCount;
@@ -472,7 +451,7 @@ Aggregator.prototype.recordComponentReady = function(options) {
         return;
     }
 
-    var traceId = options.traceId || this._currentTraceId;
+    var traceId = this._currentTraceId;
     var cmp = options.component,
         cmpHierarchy = options.hierarchy || this._getHierarchyString(cmp);
 
@@ -500,10 +479,23 @@ Aggregator.prototype.recordComponentReady = function(options) {
     this._finishEvent(cmpReadyEvent);
 };
 
+/**
+ * Starts a span and returns an object with the data and a
+ * function to call to end and record the span. Spans that are not
+ * yet ended when a new action is recorded will be dropped.
+ * @param {Object} options Information to add to the span
+ * @param {Object} options.component The component recording the span
+ * @param {String} options.description The description of the load
+ * @param {String} [options.hierarchy] The component hierarchy
+ * @param {String} [options.name] The name of the component. If not passed, will attempt to determine the name
+ * @param {String} [options.type = 'load'] The type of span. One of 'load' or 'dataRequest'
+ * @param {Number} [options.startTime = new Date().getTime()] The start time of the span
+ * @param {Object} [options.miscData] Any other data that should be recorded with the span
+ */
 Aggregator.prototype.startSpan = function(options) {
     var aggregator = this;
     var cmp = options.component;
-    var traceId = options.traceId || this._currentTraceId;
+    var traceId = this._currentTraceId;
 
     if (!traceId) {
         return;
@@ -529,23 +521,24 @@ Aggregator.prototype.startSpan = function(options) {
     return {
       data: this._startEvent(event),
       end: function(options) {
+          if (aggregator._currentTraceId !== traceId) {
+            return;
+          }
           options = options || {};
           options.stop = aggregator.getRelativeTime(options.stopTime);
 
           if (aggregator._shouldRecordEvent(this.data, options)) {
               aggregator._finishEvent(this.data, _.extend({
                   status: 'Ready'
-              }, options));
+              }, _.omit(options, 'stopTime')));
           }
       }
     };
 };
 
-Aggregator.prototype.endSpan = function(options) {
-};
-
 /**
- * Handles the beginLoad client metrics message. Starts an event
+ * Starts a span of type "load", tracked on the passed-in component.
+ * Calling "endLoad" with the same component will record the span
  * @param {Object} options Information to add to the event
  * @param {Object} options.component The component recording the event
  * @param {Number} [options.startTime = new Date().getTime()] The start time of the event
@@ -554,7 +547,7 @@ Aggregator.prototype.endSpan = function(options) {
  */
 Aggregator.prototype.beginLoad = function(options) {
     var cmp = options.component;
-    var traceId = options.traceId || this._currentTraceId;
+    var traceId = this._currentTraceId;
 
     if (!traceId) {
         return;
@@ -619,7 +612,7 @@ Aggregator.prototype.endLoad = function(options) {
     if (this._shouldRecordEvent(event, options)) {
         this._finishEvent(event, _.extend({
             status: 'Ready'
-        }, options));
+        }, _.omit(options, 'stopTime')));
     }
 };
 
@@ -633,16 +626,15 @@ Aggregator.prototype.endLoad = function(options) {
  * returns undefined if the data request could not be instrumented
  */
 Aggregator.prototype.beginDataRequest = function(requester, url, miscData) {
-    var options, traceId, metricsData;
+    var options, metricsData;
     if (arguments.length === 1) {
         options = arguments[0];
         requester = options.requester;
         url = options.url;
         miscData = options.miscData;
-        traceId = options.traceId;
     }
 
-    traceId = traceId || this._currentTraceId;
+    var traceId = this._currentTraceId;
 
     if (requester && traceId) {
         var eventId = this._getUniqueId();
@@ -1136,7 +1128,9 @@ CorsBatchSender.prototype._makePOST = function(events) {
 
 module.exports = CorsBatchSender;
 
-},{"./util":5}],"Qq6i9i":[function(require,module,exports){
+},{"./util":5}],"RallyMetrics":[function(require,module,exports){
+module.exports=require('sOmqIC');
+},{}],"sOmqIC":[function(require,module,exports){
 module.exports = {
 	"Aggregator": require ("./aggregator")
 	,"CorsBatchSender": require ("./corsBatchSender")
@@ -1144,9 +1138,7 @@ module.exports = {
 	,"WindowErrorListener": require ("./windowErrorListener")
 }
 ;
-},{"./aggregator":1,"./corsBatchSender":2,"./util":5,"./windowErrorListener":6}],"RallyMetrics":[function(require,module,exports){
-module.exports=require('Qq6i9i');
-},{}],5:[function(require,module,exports){
+},{"./aggregator":1,"./corsBatchSender":2,"./util":5,"./windowErrorListener":6}],5:[function(require,module,exports){
 (function(){
     var _ = require('underscore');
 
@@ -1281,6 +1273,6 @@ module.exports=require('Qq6i9i');
 })();
 
 
-},{"./util":5}]},{},["Qq6i9i"])
+},{"./util":5}]},{},["sOmqIC"])
   return require('RallyMetrics');
 }));
