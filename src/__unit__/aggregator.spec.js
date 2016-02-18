@@ -129,6 +129,9 @@ const findErrorEvent = () => {
 const findComponentReadyEvent = () => {
   return sentEvents.filter(ev => ev.eType === 'load' && ev.componentReady)[0];
 };
+const findComponentReadyEvents = () => {
+  return sentEvents.filter(ev => ev.eType === 'load' && ev.componentReady);
+};
 
 describe("Aggregator", () => {
   const rallyRequestId = 123456;
@@ -145,7 +148,6 @@ describe("Aggregator", () => {
     });
     expect(aggregator.sender.isDisabled()).to.be.true;
   });
-
   describe('flushInterval', () => {
     afterEach(() => {
       if (aggregator) {
@@ -167,6 +169,39 @@ describe("Aggregator", () => {
         expect(stop - start).to.be.greaterThan(20);
         return done();
       });
+    });
+  });
+  describe('allowMultipleComponentReady', () => {
+    function recordActionsAndComponentReady (options = {}, times = 2) {
+      const panel = new Panel();
+      aggregator = createAggregator();
+      startSession(aggregator);
+      const traceId = aggregator.recordAction(assign({
+        component: {},
+        description: "an action",
+        startTime: 100
+      }, options));
+      while (times > 0) {
+        aggregator.recordComponentReady({
+          component: panel
+        });
+        times--;
+      }
+    }
+    it('should only record one componentReady when recordAction is not called with option.allowMultipleComponentReady', () => {
+      recordActionsAndComponentReady();
+      const componentReadyEvents = findComponentReadyEvents();
+      expect(componentReadyEvents.length).to.equal(1);
+    });
+    it('should only record one componentReady when recordAction is called with option.allowMultipleComponentReady == false', () => {
+      recordActionsAndComponentReady({ allowMultipleComponentReady: false });
+      const componentReadyEvents = findComponentReadyEvents();
+      expect(componentReadyEvents.length).to.equal(1);
+    });
+    it('should record multiple componentReady when recordAction is called with option.allowMultipleComponentReady == true', () => {
+      recordActionsAndComponentReady({ allowMultipleComponentReady: true });
+      const componentReadyEvents = findComponentReadyEvents();
+      expect(componentReadyEvents.length).to.equal(2);
     });
   });
   describe('#addHandler', () => {

@@ -138,6 +138,7 @@ class Aggregator {
     this._browserTabId = getUniqueId();
     this._startingTime = Date.now();
     this._loadedComponents = [];
+    this._allowMultipleComponentReady = false;
 
     // keep track of how many errors we have reported on, so we
     // can stop after a while and not flood the beacon
@@ -202,6 +203,8 @@ class Aggregator {
    * Handles the action client metrics message. Starts and completes a client metric event
    */
   recordAction(options) {
+    this._allowMultipleComponentReady = !!options.allowMultipleComponentReady;
+
     const cmp = options.component;
     delete options.component;
     const traceId = getUniqueId();
@@ -269,13 +272,15 @@ class Aggregator {
     const cmp = options.component;
     const cmpHierarchy = options.hierarchy || this._getHierarchyString(cmp);
 
-    const seenThisComponentAlready = this._loadedComponents.indexOf(cmpHierarchy) > -1;
+    if (!this._allowMultipleComponentReady) {
+      const seenThisComponentAlready = this._loadedComponents.indexOf(cmpHierarchy) > -1;
 
-    if (seenThisComponentAlready) {
-      return;
+      if (seenThisComponentAlready) {
+        return;
+      }
+
+      this._loadedComponents.push(cmpHierarchy);
     }
-
-    this._loadedComponents.push(cmpHierarchy);
 
     const cmpReadyEvent = this._startEvent(assign({}, options.miscData, {
       eType: 'load',
