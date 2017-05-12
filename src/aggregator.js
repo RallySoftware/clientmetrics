@@ -1,3 +1,8 @@
+// @ts-check
+/**
+ * @module
+ */
+
 import BatchSender from './corsBatchSender';
 import { assign, forEach, omit } from './util';
 import uuidV4 from 'uuid/v4';
@@ -15,6 +20,7 @@ const WEBSERVICE_SLUG = 'webservice/';
 
 /**
  * Creates a version 4 UUID
+ * @private
  */
 const getUniqueId = () => uuidV4();
 
@@ -25,6 +31,7 @@ const getUniqueId = () => uuidV4();
  * Example: http://server/slm/webservice/1.27/Defect.js?foo=bar&baz=buzz
  * becomes 1.27/Defect.js
  * @param url The url to clean up
+ * @private
  */
 const getUrl = url => {
   if (!url) {
@@ -57,6 +64,7 @@ const getUrl = url => {
 /**
  * Sets the metrics Id property for the component with a generated uuid
  * @param cmp the component to get an ID for
+ * @private
  */
 const getComponentId = cmp => {
   if (!cmp[_metricsIdProperty]) {
@@ -69,6 +77,7 @@ const getComponentId = cmp => {
 /**
  * Finds the RallyRequestId, if any, in the response sent back from the server
  * @param response the response that came back from an Ajax request
+ * @private
  */
 export const getRallyRequestId = response => {
   const headerName = 'RallyRequestID';
@@ -90,9 +99,8 @@ export const getRallyRequestId = response => {
 };
 
 /**
- * An aggregator that listens to all client metric related messages that go out on
- * the message bus and creates a cohesive picture of what is happening, then pushes
- * this data out to an endpoint which collects the data for analysis
+ * An aggregator that exposes methods to record client metrics and send the data
+ * to an endpoint which collects the data for analysis
  *
  * ## Aggregator specific terminology
  *
@@ -120,24 +128,27 @@ export const getRallyRequestId = response => {
  *  * uId -- user id
  *  * sId -- subscription id
  *
- * Config options:
- *  * stackLimit - maximum number of stack trace lines recorded when an error occurs
- *  * ignoreStackMatcher - stack trace lines that match this regex are ignored,
- *    use this option when the relevant stack trace lines don't fit within stackLimit,
- *    for example to ignore stack lines from within React: `ignoreStackMatcher = /(getNativeNode|updateChildren|updateComponent|receiveComponent)/`
- *
  * @constructor
  * @param {Object} config Configuration object
+ * @param {String} [config.beaconUrl] Beacon URL where client metrics should be sent.
+ * @param {Boolean} [config.disableSending=false] Set to true to disable sending
+ *   client metrics to the beacon
+ * @param {Number} [config.errorLimit=25] The max number of errors to report per session. When this
+ *   amount is exceeded, recorded errors are dropped.
+ * @param {Number} [config.flushInterval] If defined, events will be sent at least that often.
+ * @param {Regexp} [config.ignoreStackMatcher] Regular expression that, if provided, will remove
+ *   matching lines from stack traces when recording JS errors.
+ *   For example to ignore stack lines from within React: `ignoreStackMatcher = /(getNativeNode|updateChildren|updateComponent|receiveComponent)/`
  * @param {Object} [config.sender = BatchSender] Which sender to use. By default,
  *   a BatchSender will be used.
- * @param {Number} [config.flushInterval] If defined, events will be sent at least that often.
- * @param {String} [config.beaconUrl = "https://trust.f4tech.com/beacon/"] URL where the beacon is located.
+ * @param {Number} [config.stackLimit=50] The number of lines to keep in error stack traces
  */
 class Aggregator {
-  constructor(config) {
+  constructor(config = {}) {
     this.sendAllRemainingEvents = this.sendAllRemainingEvents.bind(this);
     this._onSend = this._onSend.bind(this);
-    assign(this, config);
+    this._flushInterval = config.flushInterval;
+    this._ignoreStackMatcher = config.ignoreStackMatcher;
     this._actionStartTime = null;
     this._sessionStartTime = null;
     this._pendingEvents = [];
@@ -148,13 +159,13 @@ class Aggregator {
     // keep track of how many errors we have reported on, so we
     // can stop after a while and not flood the beacon
     this._errorCount = 0;
-    this.errorLimit = this.errorLimit || DEFAULT_ERROR_LIMIT;
-    this.stackLimit = this.stackLimit || DEFAULT_STACK_LIMIT;
+    this._errorLimit = config.errorLimit || DEFAULT_ERROR_LIMIT;
+    this._stackLimit = config.stackLimit || DEFAULT_STACK_LIMIT;
 
-    this.handlers = this.handlers || [];
+    this.handlers = config.handlers || [];
 
     this.sender =
-      this.sender ||
+      config.sender ||
       new BatchSender({
         keysToIgnore: ['cmp', 'component'],
         beaconUrl: config.beaconUrl,
@@ -170,6 +181,7 @@ class Aggregator {
   }
 
   /**
+   * Destroys and cleans up the aggregator. If a flushInterval was provided, that will stop.
    * @public
    */
   destroy() {
@@ -177,17 +189,21 @@ class Aggregator {
   }
 
   /**
-   * Handles the starting of a new "session"
-   * Finishes and sends off pending events with a Navigation status
-   * Resets current parent events queue, starting time, and current hash
-   * Calls a new navigation user action
-   * @param status the event's status for each of the pending events
-   * @param defaultParams Default parameters that are sent with each request
-   * @param defaultParams.sessionStart start time for this session - defaults
-   *   to now, but can be set if actual start is before library is initialized
+   * Drops any unfinshed events on the floor and resets the error count. Allows different
+   * default params to be included with each event sent after this call completes.
+   * Any events that have not been sent to the beacon will be sent at this time.
+   * @param {Object} [defaultParams={}] Key/Value pairs of parameters that will be included
+   *   with each event
+   * @param {Number} [defaultParams.sessionStart] start time for this session - defaults
+   *   to now, but can be set if actual start is before library is initialized. For example,
+   *   if you'd like to back-date the session start time to when the full page started loading,
+   *   before the library has been loaded, you might supply that value.
    * @public
    */
-  startSession(status, defaultParams = {}) {
+  startSession(_deprecated_, defaultParams = {}) {
+    if (arguments.length === 1) {
+      defaultParams = _deprecated_ || {};
+    }
     this._pendingEvents = [];
     if (defaultParams && defaultParams.sessionStart) {
       this._startingTime = defaultParams.sessionStart;
@@ -201,7 +217,19 @@ class Aggregator {
   }
 
   /**
-   * Handles the action client metrics message. Starts and completes a client metric event
+   * Starts a new trace and records an event of type _action_. The new trace ID will also be
+   * this event's ID.
+   * @param {Object} options
+   * @param {String} options.hierarchy The component hierarchy. This can be whatever format works
+   *   for your beacon. An example format is `component:parent_component:grandparent_component`.
+   *   Populates the `cmpH` field
+   * @param {String} options.description The name of the event. Example: `submitted login form`.
+   *   Populates the `eDesc` field
+   * @param {String} options.name The name of the component. Populates the `cmpType` field
+   * @param {Number} [options.startTime=now] When this action happened. Usually, you won't
+   *   provide a value here and the library will use the time of this function call.
+   * @param {Object} [options.miscData] Key/Value pairs for any other fields you would like
+   *   added to the event.
    */
   recordAction(options) {
     const cmp = options.component;
@@ -233,6 +261,13 @@ class Aggregator {
     return traceId;
   }
 
+  /**
+   * Records an event of type _error_.
+  * Any events that have not been sent to the beacon will be sent at this time.
+   * @param {Error|String} e The Error object or string message.
+   * @param {Object} [miscData={}] Key/Value pairs for any other fields you would like
+   *   added to the event.
+   */
   recordError(e, miscData = {}) {
     let error;
     if (typeof e === 'string') {
@@ -244,7 +279,7 @@ class Aggregator {
     const stack = this._getFilteredStackTrace(e, miscData);
     const traceId = this._currentTraceId;
 
-    if (traceId && this._errorCount < this.errorLimit) {
+    if (traceId && this._errorCount < this._errorLimit) {
       ++this._errorCount;
 
       const startTime = this.getRelativeTime();
@@ -268,6 +303,29 @@ class Aggregator {
     }
   }
 
+  /**
+   * Records an event of type _load_ with `eDesc`=`component ready`. The `start` field will
+   *   have the same value as the last action's start value. The `componentReady` field will
+   *   be set to `true`.
+   * 
+   * This function is useful for logging importing point-in-time events, like when a component is
+   * fully loaded. This event will be given a duration so that you can see how long it took
+   * to become ready since the user/system action was performed. A useful scenario is for
+   * recording when React containers have finished loading.
+   * 
+   * @param {Object} options
+   * @param {String} options.hierarchy The component hierarchy. This can be whatever format works
+   *   for your beacon. An example format is `component:parent_component:grandparent_component`.
+   *   Populates the `cmpH` field
+   * @param {String} options.description The name of the event. Example: `submitted login form`.
+   *   Populates the `eDesc` field
+   * @param {String} options.name The name of the component. Populates the `cmpType` field
+   * @param {Number} [options.stopTime=now] When this component ready really happened.
+   *   Usually, you won't provide a value here and the library will use the time of this function
+   *   call. Populates the `stop` field.
+   * @param {Object} [options.miscData] Key/Value pairs for any other fields you would like
+   *   added to the event.
+   */
   recordComponentReady(options) {
     if (this._sessionStartTime === null || this._actionStartTime === null) {
       return;
@@ -296,7 +354,7 @@ class Aggregator {
   }
 
   /**
-   * Starts a span and returns an object with the data and a
+   * Starts a span (event) and returns an object with the data and a
    * function to call to end and record the span. Spans that are not
    * yet ended when a new action is recorded will be dropped.
    * @param {Object} options Information to add to the span
@@ -306,7 +364,15 @@ class Aggregator {
    * @param {String} [options.name] The name of the component. If not passed, will attempt to determine the name
    * @param {String} [options.type = 'load'] The type of span. One of 'load' or 'dataRequest'
    * @param {Number} [options.startTime = Date.now()] The start time of the span
-   * @param {Object} [options.miscData] Any other data that should be recorded with the span
+   * @param {Object} [options.miscData] Key/Value pairs for any other fields you would like
+   *   added to the event.
+   * @returns {Object} Object with the following properties:
+   *   * **data**: The created span data
+   *   * **end**: A function to call when the span should be ended and sent to the beacon. An
+   *     options object can be passed to the `end` function containing key/value pairs to be
+   *     included with the event and also a `stopTime` to indicate if the event ended at a
+   *     different time than now. It can also include a `whenLongerThan` number to indicate
+   *     the number of ms that the event must be longer than or it will not be sent.
    */
   startSpan(options) {
     const cmp = options.component;
@@ -355,6 +421,7 @@ class Aggregator {
    * @param {Number} [options.startTime = Date.now()] The start time of the event
    * @param {String} options.description The description of the load
    * @param {Object} [options.miscData] Any other data that should be recorded with the event
+   * @deprecated
    */
   beginLoad(options) {
     const cmp = options.component;
@@ -396,6 +463,7 @@ class Aggregator {
    * @param {Number} [options.stopTime = Date.now()] The stop time of the event
    * @param {Number} [options.whenLongerThan] If specified, the event will be dropped if it did not take longer than
    * this value. Specified in milliseconds.
+   * @deprecated
    */
   endLoad(options) {
     const cmp = options.component;
@@ -434,6 +502,7 @@ class Aggregator {
    *  -- xhrHeaders contains headers that should be added to the AJAX data request
    *
    * returns undefined if the data request could not be instrumented
+   * @deprecated
    */
   beginDataRequest(requester, url, miscData) {
     let options, metricsData;
@@ -466,6 +535,7 @@ class Aggregator {
             eId: eventId,
             tId: traceId,
             pId: parentId,
+            start: this.getRelativeTime(),
           },
           miscData
         )
@@ -489,7 +559,8 @@ class Aggregator {
   }
 
   /**
-   * handler for after the Ajax request has finished. Finishes an event for the data request
+   * handler for after the Ajax request has finished. Finishes an event for the data request.
+   * @deprecated
    */
   endDataRequest(requester, xhr, requestId) {
     let options;
@@ -527,7 +598,7 @@ class Aggregator {
   }
 
   /**
-   * Causes the sender to purge all events it may still have in its queue.
+   * Causes the batch sender to send all events it still has in its queue.
    * Typically done when the user navigates somewhere
    */
   sendAllRemainingEvents() {
@@ -542,27 +613,13 @@ class Aggregator {
     return this._defaultParams;
   }
 
-  getSessionStartTime() {
-    return this._sessionStartTime;
-  }
-
-  getCurrentTraceId() {
-    return this._currentTraceId;
-  }
-
   /**
    * Add a handler
    * @param {Object} handler The new handler
-   * @param {Number} [index] The index to insert the new handler in the handlers collection.
-   * If not specified it will be added to the end.
-   * @public
+   * @deprecated
    */
-  addHandler(handler, index) {
-    if (arguments.length === 2) {
-      this.handlers.splice(index, 0, handler);
-    } else {
-      this.handlers.push(handler);
-    }
+  addHandler(handler) {
+    this.handlers.push(handler);
   }
 
   /**
@@ -585,10 +642,10 @@ class Aggregator {
 
   _getFilteredStackTrace(e, miscData = {}) {
     const stackList = (e.stack || miscData.stack || '').split('\n');
-    const filteredStack = this.ignoreStackMatcher
-      ? stackList.filter(stack => !this.ignoreStackMatcher.test(stack))
+    const filteredStack = this._ignoreStackMatcher
+      ? stackList.filter(stack => !this._ignoreStackMatcher.test(stack))
       : stackList;
-    return filteredStack.slice(0, this.stackLimit).join('\n');
+    return filteredStack.slice(0, this._stackLimit).join('\n');
   }
 
   _clearInterval() {
@@ -598,8 +655,8 @@ class Aggregator {
   }
 
   _setInterval() {
-    if (this.flushInterval) {
-      this._flushIntervalId = window.setInterval(this.sendAllRemainingEvents, this.flushInterval);
+    if (this._flushInterval) {
+      this._flushIntervalId = window.setInterval(this.sendAllRemainingEvents, this._flushInterval);
     }
   }
 
@@ -632,10 +689,6 @@ class Aggregator {
    */
   _startEvent(event) {
     event.tabId = this._browserTabId;
-
-    if (!Number.isInteger(event.start)) {
-      event.start = this.getRelativeTime();
-    }
     event.bts = this.getUnrelativeTime(event.start);
 
     if (event.cmp) {

@@ -7,7 +7,7 @@
   "module": "dist/rallymetrics.es.js",
   "scripts": {
     "lint": "eslint src",
-    "docs": "grunt jsdoc",
+    "docs": "jsdoc -c ./jsdoc.conf.json -d ./doc --readme ./README.md -r ./src",
     "test": "jest src",
     "build": "rollup --config --environment FORMAT:es && rollup --config --environment FORMAT:cjs && rollup --config --environment FORMAT:umd && rollup --config --environment MINIFY,FORMAT:umd",
     "lint:staged": "lint-staged",
@@ -68,6 +68,7 @@
     "grunt-jsdoc": "2.1.0",
     "grunt-release": "0.14.0",
     "jest": "19.0.2",
+    "jsdoc": "3.4.3",
     "lint-staged": "3.4.0",
     "pre-commit": "1.2.2",
     "prettier": "1.2.2",

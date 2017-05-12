@@ -2868,9 +2868,9 @@ jsbn@~0.1.0:
   version "0.1.1"
   resolved "http://npm.f4tech.com/artifactory/api/npm/rally-npm/jsbn/-/jsbn-0.1.1.tgz#a5e654c2e5a2deb5f201d96cefbca80c0ef2f513"
 
-jsdoc@^3.4.0:
+jsdoc@3.4.3, jsdoc@^3.4.0:
   version "3.4.3"
-  resolved "http://npm.f4tech.com/artifactory/api/npm/rally-npm/jsdoc/-/jsdoc-3.4.3.tgz#e5740d6145c681f6679e6c17783a88dbdd97ccd3"
+  resolved "https://registry.yarnpkg.com/jsdoc/-/jsdoc-3.4.3.tgz#e5740d6145c681f6679e6c17783a88dbdd97ccd3"
   dependencies:
     bluebird "~3.4.6"
     catharsis "~0.8.8"

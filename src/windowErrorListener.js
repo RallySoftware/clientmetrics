@@ -8,7 +8,7 @@
  * @param {Object} config Configuration object
  * @param {Number} [config.stackLimit] If defined, the stack trace for the error will be truncated to this limit
  */
-class ErrorListener {
+class WindowErrorListener {
   constructor(aggregator, supportsOnError, config) {
     this.aggregator = aggregator;
     this._stackLimit = null;
@@ -51,4 +51,4 @@ class ErrorListener {
   }
 }
 
-export default ErrorListener;
+export default WindowErrorListener;

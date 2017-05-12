@@ -27,6 +27,7 @@
 .redcar
 .settings
 .tmp*
+.vscode
 classes
 dist
 lib
