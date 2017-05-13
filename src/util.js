@@ -23,14 +23,14 @@ export const assign = (dest, ...sources) => {
       return;
     }
     Object.keys(source).forEach(key => {
-      dest[key] = source[key];
+      dest[key] = source[key]; // eslint-disable-line no-param-reassign
     });
   });
   return dest;
 };
 
 export const forEach = (arr, fn) => {
-  for (let i = 0; i < arr.length; i++) {
+  for (let i = 0; i < arr.length; i += 1) {
     const result = fn(arr[i]);
     if (result === false) {
       return;

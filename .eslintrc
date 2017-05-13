@@ -1,23 +1,102 @@
 {
-  "extends": "rally",
-
+  "extends": "airbnb",
   "env": {
+    "browser": true,
     "node": true
   },
-
   "globals": {
-    "document": true,
-    "Event": true,
-    "Promise": true,
-    "XMLHttpRequest": true,
-    "afterEach": true,
-    "beforeEach": true,
-    "expect": true,
-    "fit": true,
-    "it": true,
-    "jasmine": true,
-    "xit": true,
-    "sinon": true,
-    "window": true
+    "expect": true
+  },
+  "parser": "babel-eslint",
+  "plugins": [
+    "flowtype",
+    "import"
+  ],
+  "rules": {
+    "arrow-parens": 0,
+    "block-scoped-var": 0,
+    "comma-dangle": [
+      "error",
+      {
+        "arrays": "always-multiline",
+        "objects": "always-multiline",
+        "imports": "always-multiline",
+        "exports": "always-multiline",
+        "functions": "ignore"
+      }
+    ],
+    "flowtype/boolean-style": [
+      2,
+      "boolean"
+    ],
+    "flowtype/define-flow-type": 2,
+    "flowtype/delimiter-dangle": [
+      2,
+      "always-multiline"
+    ],
+    "flowtype/generic-spacing": [
+      2,
+      "never"
+    ],
+    "flowtype/no-dupe-keys": 0,
+    "flowtype/no-weak-types": 0,
+    "flowtype/require-return-type": [
+      1,
+      {
+        "excludeArrowFunctions": "expressionsOnly"
+      }
+    ],
+    "flowtype/require-valid-file-annotation": [
+      0
+    ],
+    "flowtype/semi": [
+      2,
+      "always"
+    ],
+    "flowtype/sort-keys": 0,
+    "flowtype/space-after-type-colon": [
+      2,
+      "always"
+    ],
+    "flowtype/space-before-generic-bracket": [
+      2,
+      "never"
+    ],
+    "flowtype/space-before-type-colon": [
+      2,
+      "never"
+    ],
+    "flowtype/type-id-match": 0,
+    "flowtype/union-intersection-spacing": [
+      2,
+      "always"
+    ],
+    "flowtype/use-flow-type": 2,
+    "import/prefer-default-export": 0,
+    "new-cap": [
+      "error",
+      {
+        "properties": false
+      }
+    ],
+    "no-console": 0,
+    "no-duplicate-imports": 0,
+    // Temporarily disabled due to babel-eslint issues:
+    "no-underscore-dangle": [
+      "error",
+      {
+        "allowAfterThis": true
+      }
+    ],
+    "padded-blocks": 0,
+    "space-before-function-paren": [
+      "error",
+      "never"
+    ]
+  },
+  "settings": {
+    "flowtype": {
+      "onlyFilesWithFlowAnnotation": true
+    }
   }
 }

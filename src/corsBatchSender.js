@@ -19,18 +19,17 @@ const defaultConfig = {
  * the beacon is using the same logic for POST and GET. It's maintaining GET for
  * backwards compatibility with old App SDKs
  */
-const appendIndexToKeys = (event, index) => {
+const appendIndexToKeys = (event, index) =>
   /**
    * Before CORS, the beacon GET requests meant all data was a string.
    * We are simulating that with this method, properly handling non-string
    * data on the backend is a decent amount of work. Hoping this method is
    * temporary.
    */
-  return Object.keys(event).reduce((result, key) => {
-    result[`${key}.${index}`] = `${event[key]}`;
+  Object.keys(event).reduce((result, key) => {
+    result[`${key}.${index}`] = `${event[key]}`; // eslint-disable-line no-param-reassign
     return result;
   }, {});
-};
 
 const useRequestIdle = callback => window.requestIdleCallback(callback, { timeout: 1000 });
 const useSetTimeout = callback => window.setTimeout(callback, 1000);
@@ -43,11 +42,13 @@ const useSetTimeout = callback => window.setTimeout(callback, 1000);
  * request.
  * @constructor
  * @param {Object} config Configuration object
- * @param {String[]} [config.keysToIgnore = new Array()] Which properties on events should not be sent
+ * @param {String[]} [config.keysToIgnore = new Array()] Which properties on events should
+ *   not be sent
  * @param {Number} [config.minNumberOfEvents = 40] The minimum number of events for one batch
  * @param {Number} [config.maxNumberOfEvents = 100] The maximum number of events for one batch
  * @param {String} [config.beaconUrl = "https://trust.f4tech.com/beacon/"] URL where the beacon is located.
- * @param {Function} [config.sendDeferred] Function that calls passed-in callback function, possibly asyncronously
+ * @param {Function} [config.sendDeferred] Function that calls passed-in callback function,
+ *   possibly asyncronously
  */
 class CorsBatchSender {
   constructor(config) {
@@ -121,9 +122,9 @@ class CorsBatchSender {
 
   _makePOST(events) {
     // from an array of individual events to an object of events with keys on them
-    const data = events.reduce((data, event, index) => {
+    const data = events.reduce((acc, event, index) => {
       const eventToSend = appendIndexToKeys(omit(event, this.keysToIgnore), index);
-      return assign(data, eventToSend);
+      return assign(acc, eventToSend);
     }, {});
 
     try {

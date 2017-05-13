@@ -6,7 +6,8 @@
  * @constructor
  * @param {RallyMetrics.ClientMetricsAggregator} aggregator
  * @param {Object} config Configuration object
- * @param {Number} [config.stackLimit] If defined, the stack trace for the error will be truncated to this limit
+ * @param {Number} [config.stackLimit] If defined, the stack trace for the error will be truncated
+ *   to this limit
  */
 class WindowErrorListener {
   constructor(aggregator, supportsOnError, config) {
@@ -22,7 +23,8 @@ class WindowErrorListener {
 
   _onWindowError(msg, filename, lineno, colno, errorObject) {
     if (errorObject && errorObject.message) {
-      return this.aggregator.recordError(errorObject);
+      this.aggregator.recordError(errorObject);
+      return;
     }
     if (typeof this._originalWindowOnError === 'function') {
       this._originalWindowOnError.call(window, msg, filename, lineno);

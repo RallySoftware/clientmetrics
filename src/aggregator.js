@@ -2,10 +2,9 @@
 /**
  * @module
  */
-
+import uuidV4 from 'uuid/v4';
 import BatchSender from './corsBatchSender';
 import { assign, forEach, omit } from './util';
-import uuidV4 from 'uuid/v4';
 
 // The default for max number of errors we will send per session.
 const DEFAULT_ERROR_LIMIT = 25;
@@ -14,8 +13,8 @@ const DEFAULT_ERROR_LIMIT = 25;
 const DEFAULT_STACK_LIMIT = 20;
 
 // bookkeeping properties that are set on components being measured
-const _currentEventId = '__clientMetricsCurrentEventId__';
-const _metricsIdProperty = '__clientMetricsID__';
+const currentEventId = '__clientMetricsCurrentEventId__';
+const metricsIdProperty = '__clientMetricsID__';
 const WEBSERVICE_SLUG = 'webservice/';
 
 /**
@@ -50,15 +49,14 @@ const getUrl = url => {
 
     const skip = WEBSERVICE_SLUG.length;
     return url.substring(webserviceIndex + skip, questionIndex);
-  } else {
-    questionIndex = url.indexOf('?');
-
-    if (questionIndex === -1) {
-      return url;
-    }
-
-    return url.substring(0, questionIndex);
   }
+  questionIndex = url.indexOf('?');
+
+  if (questionIndex === -1) {
+    return url;
+  }
+
+  return url.substring(0, questionIndex);
 };
 
 /**
@@ -67,11 +65,11 @@ const getUrl = url => {
  * @private
  */
 const getComponentId = cmp => {
-  if (!cmp[_metricsIdProperty]) {
-    cmp[_metricsIdProperty] = getUniqueId();
+  if (!cmp[metricsIdProperty]) {
+    cmp[metricsIdProperty] = getUniqueId(); // eslint-disable-line no-param-reassign
   }
 
-  return cmp[_metricsIdProperty];
+  return cmp[metricsIdProperty];
 };
 
 /**
@@ -96,6 +94,7 @@ export const getRallyRequestId = response => {
       return response.headers(headerName);
     }
   }
+  return null;
 };
 
 /**
@@ -104,12 +103,13 @@ export const getRallyRequestId = response => {
  *
  * ## Aggregator specific terminology
  *
- * * **event:** A distinct, measurable thing that the page did or the user invoked. For example, clicking on a button,
- * a panel loading, or a grid resorting are all events
+ * * **event:** A distinct, measurable thing that the page did or the user invoked.
+ *     For example, clicking on a button, a panel loading, or a grid resorting are all events
  * * **handler:** A helper object that helps the aggregator identify where events came from.
- * * **status:** What was the ultimate fate of an event? If a panel fully loads and becomes fully usable, the event associated
- * with the panel load will have the status of "Ready". If the user navigates away from the page before the panel
- * finishes loading, the associated event's conclusion will be "Navigation". Current conclusion values are:
+ * * **status:** What was the ultimate fate of an event? If a panel fully loads and becomes
+ *     fully usable, the event associated with the panel load will have the status of "Ready".
+ *     If the user navigates away from the page before the panel finishes loading, the associated
+ *     event's conclusion will be "Navigation". Current conclusion values are:
  *     - Ready: the event concluded normally
  *     - Navigation: the user navigated away before the event could complete
  *     - Timeout: (Not yet implemented), indicates a load event took too long
@@ -138,7 +138,8 @@ export const getRallyRequestId = response => {
  * @param {Number} [config.flushInterval] If defined, events will be sent at least that often.
  * @param {Regexp} [config.ignoreStackMatcher] Regular expression that, if provided, will remove
  *   matching lines from stack traces when recording JS errors.
- *   For example to ignore stack lines from within React: `ignoreStackMatcher = /(getNativeNode|updateChildren|updateComponent|receiveComponent)/`
+ *   For example to ignore stack lines from within React:
+ *   `ignoreStackMatcher = /(getNativeNode|updateChildren|updateComponent|receiveComponent)/`
  * @param {Object} [config.sender = BatchSender] Which sender to use. By default,
  *   a BatchSender will be used.
  * @param {Number} [config.stackLimit=50] The number of lines to keep in error stack traces
@@ -202,7 +203,7 @@ class Aggregator {
    */
   startSession(_deprecated_, defaultParams = {}) {
     if (arguments.length === 1) {
-      defaultParams = _deprecated_ || {};
+      defaultParams = _deprecated_ || {}; // eslint-disable-line no-param-reassign
     }
     this._pendingEvents = [];
     if (defaultParams && defaultParams.sessionStart) {
@@ -240,7 +241,7 @@ class Aggregator {
       assign(
         {
           eType: 'action',
-          cmp: cmp,
+          cmp,
           cmpH: options.hierarchy || this._getHierarchyString(cmp),
           eDesc: options.description,
           cmpId: getComponentId(cmp),
@@ -280,7 +281,7 @@ class Aggregator {
     const traceId = this._currentTraceId;
 
     if (traceId && this._errorCount < this._errorLimit) {
-      ++this._errorCount;
+      this._errorCount += 1;
 
       const startTime = this.getRelativeTime();
 
@@ -307,12 +308,12 @@ class Aggregator {
    * Records an event of type _load_ with `eDesc`=`component ready`. The `start` field will
    *   have the same value as the last action's start value. The `componentReady` field will
    *   be set to `true`.
-   * 
+   *
    * This function is useful for logging importing point-in-time events, like when a component is
    * fully loaded. This event will be given a duration so that you can see how long it took
    * to become ready since the user/system action was performed. A useful scenario is for
    * recording when React containers have finished loading.
-   * 
+   *
    * @param {Object} options
    * @param {String} options.hierarchy The component hierarchy. This can be whatever format works
    *   for your beacon. An example format is `component:parent_component:grandparent_component`.
@@ -361,7 +362,8 @@ class Aggregator {
    * @param {Object} options.component The component recording the span
    * @param {String} options.description The description of the load
    * @param {String} [options.hierarchy] The component hierarchy
-   * @param {String} [options.name] The name of the component. If not passed, will attempt to determine the name
+   * @param {String} [options.name] The name of the component. If not passed, will attempt to
+   *   determine the name
    * @param {String} [options.type = 'load'] The type of span. One of 'load' or 'dataRequest'
    * @param {Number} [options.startTime = Date.now()] The start time of the span
    * @param {Object} [options.miscData] Key/Value pairs for any other fields you would like
@@ -379,14 +381,14 @@ class Aggregator {
     const traceId = this._currentTraceId;
 
     if (!traceId) {
-      return;
+      return null;
     }
 
     const startTime = this.getRelativeTime(options.startTime);
     const eventId = getUniqueId();
     const event = assign({}, options.miscData, {
       eType: options.type || 'load',
-      cmp: cmp,
+      cmp,
       cmpH: options.hierarchy || this._getHierarchyString(cmp),
       eId: eventId,
       cmpType: options.name || this.getComponentType(cmp),
@@ -401,12 +403,15 @@ class Aggregator {
     const data = this._startEvent(event);
     return {
       data,
-      end: options => {
-        options = options || {};
-        options.stop = this.getRelativeTime(options.stopTime);
-
-        if (this._shouldRecordEvent(data, options)) {
-          const newEventData = assign({ status: 'Ready' }, omit(options, ['stopTime']));
+      end: (endOptions = {}) => {
+        if (this._shouldRecordEvent(data, endOptions)) {
+          const newEventData = assign(
+            {
+              status: 'Ready',
+              stop: this.getRelativeTime(endOptions.stopTime),
+            },
+            omit(endOptions, ['stopTime'])
+          );
           this._finishEvent(data, newEventData);
         }
       },
@@ -431,7 +436,7 @@ class Aggregator {
       return;
     }
 
-    if (cmp[_currentEventId + 'load']) {
+    if (cmp[`${currentEventId}load`]) {
       // already an in flight load event, so going to bail on this one
       return;
     }
@@ -439,11 +444,11 @@ class Aggregator {
     const startTime = this.getRelativeTime(options.startTime);
 
     const eventId = getUniqueId();
-    cmp[_currentEventId + 'load'] = eventId;
+    cmp[`${currentEventId}load`] = eventId;
 
     const event = assign({}, options.miscData, {
       eType: 'load',
-      cmp: cmp,
+      cmp,
       cmpH: this._getHierarchyString(cmp),
       eDesc: options.description,
       cmpId: getComponentId(cmp),
@@ -461,35 +466,39 @@ class Aggregator {
    * @param {Object} options Information to add to the event
    * @param {Object} options.component The component recording the event
    * @param {Number} [options.stopTime = Date.now()] The stop time of the event
-   * @param {Number} [options.whenLongerThan] If specified, the event will be dropped if it did not take longer than
-   * this value. Specified in milliseconds.
+   * @param {Number} [options.whenLongerThan] If specified, the event will be dropped if it did
+   *   not take longer than this value. Specified in milliseconds.
    * @deprecated
    */
   endLoad(options) {
     const cmp = options.component;
 
-    const eventId = cmp[_currentEventId + 'load'];
+    const eventId = cmp[`${currentEventId}load`];
 
     if (!eventId) {
       // load end found without a load begin, not much can be done with it
       return;
     }
 
-    delete cmp[_currentEventId + 'load'];
+    delete cmp[`${currentEventId}load`];
 
     const event = this._findPendingEvent(eventId);
 
     if (!event) {
       // if we didn't find a pending event, then the load begin happened before the
-      // aggregator was ready or a new session was started. Since this load is beyond the scope of the aggregator,
-      // just ignoring it.
+      // aggregator was ready or a new session was started. Since this load is beyond the
+      // scope of the aggregator, just ignoring it.
       return;
     }
 
-    options.stop = this.getRelativeTime(options.stopTime);
-
     if (this._shouldRecordEvent(event, options)) {
-      const newEventData = assign({ status: 'Ready' }, omit(options, ['stopTime']));
+      const newEventData = assign(
+        {
+          status: 'Ready',
+          stop: this.getRelativeTime(options.stopTime),
+        },
+        omit(options, ['stopTime'])
+      );
       this._finishEvent(event, newEventData);
     }
   }
@@ -504,13 +513,19 @@ class Aggregator {
    * returns undefined if the data request could not be instrumented
    * @deprecated
    */
-  beginDataRequest(requester, url, miscData) {
-    let options, metricsData;
-    if (arguments.length === 1) {
-      options = arguments[0];
+  beginDataRequest(...args) {
+    let options;
+    let metricsData;
+    let requester;
+    let url;
+    let miscData;
+    if (args.length === 1) {
+      options = args[0];
       requester = options.requester;
       url = options.url;
       miscData = options.miscData;
+    } else {
+      [requester, url, miscData] = args;
     }
 
     const traceId = this._currentTraceId;
@@ -519,7 +534,7 @@ class Aggregator {
       const eventId = getUniqueId();
       const parentId = this._findParentId(requester, traceId);
       const ajaxRequestId = getUniqueId();
-      requester[_currentEventId + 'dataRequest' + ajaxRequestId] = eventId;
+      requester[`${currentEventId}dataRequest${ajaxRequestId}`] = eventId;
 
       this._startEvent(
         assign(
@@ -562,24 +577,28 @@ class Aggregator {
    * handler for after the Ajax request has finished. Finishes an event for the data request.
    * @deprecated
    */
-  endDataRequest(requester, xhr, requestId) {
+  endDataRequest(...args) {
     let options;
-
-    if (arguments.length === 1) {
-      options = arguments[0];
+    let requester;
+    let xhr;
+    let requestId;
+    if (args.length === 1) {
+      options = args[0];
       requester = options.requester;
       xhr = options.xhr;
       requestId = options.requestId;
+    } else {
+      [requester, xhr, requestId] = args;
     }
 
     if (requester) {
-      const eventId = requester[_currentEventId + 'dataRequest' + requestId];
+      const eventId = requester[`${currentEventId}dataRequest${requestId}`];
 
       const event = this._findPendingEvent(eventId);
       if (!event) {
         // if we didn't find a pending event, then the request started before the
-        // aggregator was ready or a new session was started. Since this load is beyond the scope of the aggregator,
-        // just ignoring it.
+        // aggregator was ready or a new session was started. Since this load is beyond the scope
+        // of the aggregator, just ignoring it.
         return;
       }
 
@@ -688,19 +707,22 @@ class Aggregator {
    * @private
    */
   _startEvent(event) {
-    event.tabId = this._browserTabId;
-    event.bts = this.getUnrelativeTime(event.start);
+    const addlFields = {
+      tabId: this._browserTabId,
+      bts: this.getUnrelativeTime(event.start),
+    };
 
     if (event.cmp) {
       const appName = this._getFromHandlers(event.cmp, 'getAppName');
 
       if (appName) {
-        event.appName = appName;
+        addlFields.appName = appName;
       }
     }
-    this._pendingEvents.push(assign(event, this._defaultParams));
+    const startedEvent = assign(addlFields, event, this._defaultParams);
+    this._pendingEvents.push(startedEvent);
 
-    return event;
+    return startedEvent;
   }
 
   /**
@@ -730,17 +752,17 @@ class Aggregator {
     let eventId = traceId;
 
     forEach(hierarchy, cmp => {
-      const parentEvent = this._findLastEvent(event => {
-        return (
+      const parentEvent = this._findLastEvent(
+        event =>
           event.eType !== 'dataRequest' &&
           (event.cmp === cmp || event.cmp === sourceCmp) &&
           event.tId === traceId
-        );
-      });
+      );
       if (parentEvent) {
         eventId = parentEvent.eId;
         return false;
       }
+      return true;
     });
 
     return eventId;
@@ -748,16 +770,17 @@ class Aggregator {
 
   _getHierarchy(cmp) {
     let cmpType = this.getComponentType(cmp);
+    let hierCmp = cmp;
     const hierarchy = [];
 
     while (cmpType) {
-      hierarchy.push(cmp);
-      cmp =
-        cmp.clientMetricsParent ||
-        cmp.ownerCt ||
-        cmp.owner ||
-        (cmp.initialConfig && cmp.initialConfig.owner);
-      cmpType = cmp && this.getComponentType(cmp);
+      hierarchy.push(hierCmp);
+      hierCmp =
+        hierCmp.clientMetricsParent ||
+        hierCmp.ownerCt ||
+        hierCmp.owner ||
+        (hierCmp.initialConfig && hierCmp.initialConfig.owner);
+      cmpType = hierCmp && this.getComponentType(hierCmp);
     }
 
     return hierarchy;
@@ -779,7 +802,7 @@ class Aggregator {
    * @private
    */
   _findPendingEvent(eventId) {
-    for (let i = 0; i < this._pendingEvents.length; i++) {
+    for (let i = 0; i < this._pendingEvents.length; i += 1) {
       const ev = this._pendingEvents[i];
       if (ev.eId === eventId) {
         return ev;
@@ -789,7 +812,7 @@ class Aggregator {
   }
 
   _findLastEvent(predicate) {
-    for (let i = this._pendingEvents.length - 1; i >= 0; i--) {
+    for (let i = this._pendingEvents.length - 1; i >= 0; i -= 1) {
       const ev = this._pendingEvents[i];
       if (predicate(ev)) {
         return ev;
