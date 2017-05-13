@@ -160,7 +160,7 @@ describe('Aggregator', () => {
   });
 
   describe('#addHandler', () => {
-    it('should add handler with NO index specified', () => {
+    it('should add handler to the end', () => {
       aggregator = createAggregator();
       const newHandler = {
         foo: 'bar',
@@ -168,15 +168,6 @@ describe('Aggregator', () => {
       aggregator.addHandler(newHandler);
       expect(aggregator.handlers.length).toEqual(2);
       expect(aggregator.handlers[1]).toEqual(newHandler);
-    });
-    it('should add handler at specified index', () => {
-      aggregator = createAggregator();
-      const newHandler = {
-        foo: 'bar',
-      };
-      aggregator.addHandler(newHandler, 0);
-      expect(aggregator.handlers.length).toEqual(2);
-      expect(aggregator.handlers[0]).toEqual(newHandler);
     });
   });
 
@@ -198,7 +189,7 @@ describe('Aggregator', () => {
       const actionEvent = findActionEvent();
       expect(actionEvent.hash).toEqual(hash);
     });
-    it('should allow a startTime in the past', () => {
+    it('does not add sessionStart value to default params', () => {
       aggregator = createAggregator();
       const hash = '/some/hash';
       const startingTime = Date.now() - 5000;
@@ -207,8 +198,7 @@ describe('Aggregator', () => {
         sessionStart: startingTime,
       };
       aggregator.startSession('Session 1', defaultParams);
-      expect(aggregator.getSessionStartTime()).toBeGreaterThan(0);
-      expect(aggregator.getDefaultParams().sessionStart).toEqual(void 0);
+      expect(aggregator.getDefaultParams().sessionStart).toBeUndefined();
     });
   });
 
@@ -849,13 +839,13 @@ describe('Aggregator', () => {
     });
     it('should not find a RallyRequestId if there is no getResponseHeader', () => {
       const response = {};
-      expect(getRallyRequestId(response)).toBeUndefined();
+      expect(getRallyRequestId(response)).toBeNull();
     });
     it('should not find a RallyRequestId if there getResponseHeader is something else', () => {
       const response = {
         getResponseHeader: 123,
       };
-      expect(getRallyRequestId(response)).toBeUndefined();
+      expect(getRallyRequestId(response)).toBeNull();
     });
     it('should find a RallyRequestID if there is a headers method', () => {
       const response = {
@@ -864,9 +854,11 @@ describe('Aggregator', () => {
       expect(getRallyRequestId(response)).toEqual('myrequestid');
       expect(response.headers).toHaveBeenCalledWith('RallyRequestID');
     });
-    it('should find a RallyRequestId if its passed in as a string', () => {
+    it('should find a RallyRequestId if the response is a string', () => {
       expect(getRallyRequestId('ImARequestId')).toEqual('ImARequestId');
-      expect(getRallyRequestId(123)).toBeUndefined();
+    });
+    it('should not find a RallyRequestId if the response is a number', () => {
+      expect(getRallyRequestId(123)).toBeNull();
     });
   });
 

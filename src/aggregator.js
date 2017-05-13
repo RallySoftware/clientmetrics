@@ -151,7 +151,6 @@ class Aggregator {
     this._flushInterval = config.flushInterval;
     this._ignoreStackMatcher = config.ignoreStackMatcher;
     this._actionStartTime = null;
-    this._sessionStartTime = null;
     this._pendingEvents = [];
     this._browserTabId = getUniqueId();
     this._startingTime = Date.now();
@@ -209,7 +208,6 @@ class Aggregator {
     if (defaultParams && defaultParams.sessionStart) {
       this._startingTime = defaultParams.sessionStart;
     }
-    this._sessionStartTime = this.getRelativeTime();
     this.sendAllRemainingEvents();
     this._defaultParams = omit(defaultParams, ['sessionStart']);
 
@@ -328,7 +326,7 @@ class Aggregator {
    *   added to the event.
    */
   recordComponentReady(options) {
-    if (this._sessionStartTime === null || this._actionStartTime === null) {
+    if (this._actionStartTime === null) {
       return;
     }
 
@@ -404,14 +402,14 @@ class Aggregator {
     return {
       data,
       end: (endOptions = {}) => {
-        if (this._shouldRecordEvent(data, endOptions)) {
-          const newEventData = assign(
-            {
-              status: 'Ready',
-              stop: this.getRelativeTime(endOptions.stopTime),
-            },
-            omit(endOptions, ['stopTime'])
-          );
+        const newEventData = assign(
+          {
+            status: 'Ready',
+            stop: this.getRelativeTime(endOptions.stopTime),
+          },
+          omit(endOptions, ['stopTime'])
+        );
+        if (this._shouldRecordEvent(data, newEventData)) {
           this._finishEvent(data, newEventData);
         }
       },
@@ -491,14 +489,14 @@ class Aggregator {
       return;
     }
 
-    if (this._shouldRecordEvent(event, options)) {
-      const newEventData = assign(
-        {
-          status: 'Ready',
-          stop: this.getRelativeTime(options.stopTime),
-        },
-        omit(options, ['stopTime'])
-      );
+    const newEventData = assign(
+      {
+        status: 'Ready',
+        stop: this.getRelativeTime(options.stopTime),
+      },
+      omit(options, ['stopTime'])
+    );
+    if (this._shouldRecordEvent(event, newEventData)) {
       this._finishEvent(event, newEventData);
     }
   }
@@ -630,6 +628,10 @@ class Aggregator {
 
   getDefaultParams() {
     return this._defaultParams;
+  }
+
+  getCurrentTraceId() {
+    return this._currentTraceId;
   }
 
   /**
