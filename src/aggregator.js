@@ -167,7 +167,7 @@ class Aggregator {
     this.sender =
       config.sender ||
       new BatchSender({
-        keysToIgnore: ['cmp', 'component'],
+        keysToIgnore: ['cmp', 'component', 'whenLongerThan'],
         beaconUrl: config.beaconUrl,
         disableSending: config.disableSending,
         onSend: this._onSend,
@@ -409,9 +409,7 @@ class Aggregator {
           },
           omit(endOptions, ['stopTime'])
         );
-        if (this._shouldRecordEvent(data, newEventData)) {
-          this._finishEvent(data, newEventData);
-        }
+        this._finishEvent(data, newEventData);
       },
     };
   }
@@ -456,7 +454,7 @@ class Aggregator {
       pId: this._findParentId(cmp, traceId),
       start: startTime,
     });
-    this._startEvent(event);
+    this._startEvent(event, true);
   }
 
   /**
@@ -496,9 +494,7 @@ class Aggregator {
       },
       omit(options, ['stopTime'])
     );
-    if (this._shouldRecordEvent(event, newEventData)) {
-      this._finishEvent(event, newEventData);
-    }
+    this._finishEvent(event, newEventData, true);
   }
 
   /**
@@ -534,25 +530,24 @@ class Aggregator {
       const ajaxRequestId = getUniqueId();
       requester[`${currentEventId}dataRequest${ajaxRequestId}`] = eventId;
 
-      this._startEvent(
-        assign(
-          {},
-          miscData,
-          {
-            eType: 'dataRequest',
-            cmp: requester,
-            cmpH: this._getHierarchyString(requester),
-            url: getUrl(url),
-            cmpType: this.getComponentType(requester),
-            cmpId: getComponentId(requester),
-            eId: eventId,
-            tId: traceId,
-            pId: parentId,
-            start: this.getRelativeTime(),
-          },
-          miscData
-        )
+      const event = assign(
+        {},
+        {
+          eType: 'dataRequest',
+          cmp: requester,
+          cmpH: this._getHierarchyString(requester),
+          url: getUrl(url),
+          cmpType: this.getComponentType(requester),
+          cmpId: getComponentId(requester),
+          eId: eventId,
+          tId: traceId,
+          pId: parentId,
+          start: this.getRelativeTime(),
+        },
+        miscData
       );
+
+      this._startEvent(event, true);
 
       // NOTE: this looks wrong, but it's not. :)
       // This client side dataRequest event is going to be
@@ -610,7 +605,7 @@ class Aggregator {
         newEventData.rallyRequestId = rallyRequestId;
       }
 
-      this._finishEvent(event, newEventData);
+      this._finishEvent(event, newEventData, true);
     }
   }
 
@@ -693,22 +688,28 @@ class Aggregator {
    * @param existingEvent the event object that has started
    * @param newEventData an object with event properties to append if
    * it doesn't already exist on the event
+   * @param {Boolean} [removeFromPendingEvents=false]
    * @private
    */
-  _finishEvent(existingEvent, newEventData) {
+  _finishEvent(existingEvent, newEventData = {}, removeFromPendingEvents = false) {
     const event = assign({}, existingEvent, newEventData);
-    this._pendingEvents = this._pendingEvents.filter(ev => ev !== existingEvent);
-
-    this.sender.send(event);
+    if (removeFromPendingEvents) {
+      this._pendingEvents = this._pendingEvents.filter(ev => ev !== existingEvent);
+    }
+    if (this._shouldRecordEvent(event)) {
+      this.sender.send(event);
+    }
   }
 
   /**
    * Starts an event object by completing necessary event properties
    * Adds this new event object to the pending and current parent event queue
    * @param event the event object with event properties
+   * @param {Boolean} [addToPendingEvents=false] Only needed if the caller cannot manage finishing
+   *   on its own. Used by legacy functions (beginLoad and beginDataRequest).
    * @private
    */
-  _startEvent(event) {
+  _startEvent(event, addToPendingEvents = false) {
     const addlFields = {
       tabId: this._browserTabId,
       bts: this.getUnrelativeTime(event.start),
@@ -722,7 +723,9 @@ class Aggregator {
       }
     }
     const startedEvent = assign(addlFields, event, this._defaultParams);
-    this._pendingEvents.push(startedEvent);
+    if (addToPendingEvents) {
+      this._pendingEvents.push(startedEvent);
+    }
 
     return startedEvent;
   }
@@ -823,9 +826,9 @@ class Aggregator {
     return null;
   }
 
-  _shouldRecordEvent(existingEvent, options) {
-    if (options.whenLongerThan && options.stop - existingEvent.start <= options.whenLongerThan) {
-      this._pendingEvents = this._pendingEvents.filter(ev => ev !== existingEvent);
+  _shouldRecordEvent(event) {
+    if (event.whenLongerThan && event.stop - event.start <= event.whenLongerThan) {
+      this._pendingEvents = this._pendingEvents.filter(ev => ev !== event);
       return false;
     }
 
