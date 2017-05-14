@@ -36,7 +36,6 @@ projectFilesBackup
 target
 spec/javascripts/
 node_modules/
-.grunt/
 _SpecRunner.html
 bundle.js
 test/rallymetrics-test*
