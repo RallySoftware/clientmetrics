@@ -26,10 +26,7 @@ describe('WindowErrorListener', () => {
   it('should record the error message, file and line number', () => {
     createListener();
     window.onerror(message, filename, lineno);
-    expect(aggregator.recordError).toHaveBeenCalledWith(
-      message + ', ' + filename + ':' + lineno,
-      {}
-    );
+    expect(aggregator.recordError).toHaveBeenCalledWith(`${message}, ${filename}:${lineno}`, {});
   });
 
   it('should pass column number and stack trace if available', () => {
@@ -44,29 +41,6 @@ describe('WindowErrorListener', () => {
       columnNumber: colno,
       stack,
     });
-  });
-
-  it('should not trim stack by default', () => {
-    createListener();
-    const stack = new Array(1000)
-      .map(() => 'this is a very long stack trace that should be preserved')
-      .join('\n');
-    window.onerror(message, filename, lineno, colno, { stack });
-    expect(aggregator.recordError.args[0][1].stack).toBe(stack);
-  });
-
-  it('should trim stack if configured', () => {
-    const stackLimit = 10;
-    createListener({
-      stackLimit: stackLimit,
-    });
-    const stack = new Array(1000)
-      .map(() => 'this is a very long stack trace that should be preserved')
-      .join('\n');
-    window.onerror(message, filename, lineno, colno, { stack });
-    expect(aggregator.recordError.args[0][1].stack).toBe(
-      stack.split('\n').slice(0, stackLimit).join('\n')
-    );
   });
 
   it('should gracefully deal with no error message, file and line number', () => {

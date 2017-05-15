@@ -5,17 +5,10 @@
  * This is used by client metrics to send client side errors to the beacon
  * @constructor
  * @param {RallyMetrics.ClientMetricsAggregator} aggregator
- * @param {Object} config Configuration object
- * @param {Number} [config.stackLimit] If defined, the stack trace for the error will be truncated
- *   to this limit
  */
 class WindowErrorListener {
-  constructor(aggregator, supportsOnError, config) {
+  constructor(aggregator) {
     this.aggregator = aggregator;
-    this._stackLimit = null;
-    if (config && config.stackLimit) {
-      this._stackLimit = parseInt(config.stackLimit, 10);
-    }
 
     this._originalWindowOnError = window.onerror;
     window.onerror = this._onWindowError.bind(this);
@@ -44,9 +37,6 @@ class WindowErrorListener {
 
     if (errorObject && errorObject.stack) {
       miscData.stack = errorObject.stack;
-      if (this._stackLimit) {
-        miscData.stack = miscData.stack.split('\n').slice(0, this._stackLimit).join('\n');
-      }
     }
 
     this.aggregator.recordError(errorInfo, miscData);

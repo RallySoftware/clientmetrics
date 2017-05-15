@@ -531,7 +531,6 @@ class Aggregator {
       requester[`${currentEventId}dataRequest${ajaxRequestId}`] = eventId;
 
       const event = assign(
-        {},
         {
           eType: 'dataRequest',
           cmp: requester,
