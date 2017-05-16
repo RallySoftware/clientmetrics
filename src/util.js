@@ -28,12 +28,3 @@ export const assign = (dest, ...sources) => {
   });
   return dest;
 };
-
-export const forEach = (arr, fn) => {
-  for (let i = 0; i < arr.length; i += 1) {
-    const result = fn(arr[i]);
-    if (result === false) {
-      return;
-    }
-  }
-};

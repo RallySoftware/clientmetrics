@@ -1,23 +1,5 @@
 import sinon from 'sinon';
 
-const messageFactories = {
-  spy(txt) {
-    return function(pass, spy) {
-      return messageUtils.expectedSpy(pass, spy, txt) + '.';
-    };
-  },
-  spyWithCallCount(txt) {
-    return function(pass, spy, otherArgs) {
-      return messageUtils.expectedSpy(pass, spy, txt) + '. ' + messageUtils.callCount(spy) + '.';
-    };
-  },
-  spyWithOtherArgs(txt) {
-    return function(pass, spy, otherArgs) {
-      return messageUtils.expectedSpy(pass, spy, txt) + ' ' + messageUtils.otherArgs(otherArgs);
-    };
-  },
-};
-
 const messageUtils = {
   expectedSpy(pass, spy, txt) {
     const not = pass ? 'not ' : '';
@@ -32,10 +14,27 @@ const messageUtils = {
     if (!otherArgs || !otherArgs.length) {
       return '';
     } else if (otherArgs.length > 1) {
-      return jest.pp(otherArgs);
-    } else {
-      return jest.pp(otherArgs[0]);
+      return JSON.stringify(otherArgs);
     }
+    return JSON.stringify(otherArgs[0]);
+  },
+};
+
+const messageFactories = {
+  spy(txt) {
+    return function spy(pass, spyFn) {
+      return `${messageUtils.expectedSpy(pass, spyFn, txt)}.`;
+    };
+  },
+  spyWithCallCount(txt) {
+    return function spyWithCallCount(pass, spy) {
+      return `${messageUtils.expectedSpy(pass, spy, txt)}. ${messageUtils.callCount(spy)}.`;
+    };
+  },
+  spyWithOtherArgs(txt) {
+    return function spyWithOtherArgs(pass, spy, otherArgs) {
+      return `${messageUtils.expectedSpy(pass, spy, txt)} ${messageUtils.otherArgs(otherArgs)}`;
+    };
   },
 };
 
@@ -148,7 +147,7 @@ const matchers = [
 ];
 
 function createMatcher(matcher) {
-  return function(actual, expected, ...args) {
+  return function matcherFn(actual, expected, ...args) {
     const sinonProperty = actual[matcher.sinonName];
 
     let pass;

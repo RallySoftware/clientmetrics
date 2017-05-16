@@ -16,7 +16,7 @@
     "arrow-parens": 0,
     "block-scoped-var": 0,
     "comma-dangle": [
-      "error",
+      2,
       {
         "arrays": "always-multiline",
         "objects": "always-multiline",
@@ -74,7 +74,7 @@
     "flowtype/use-flow-type": 2,
     "import/prefer-default-export": 0,
     "new-cap": [
-      "error",
+      2,
       {
         "properties": false
       }
@@ -83,14 +83,14 @@
     "no-duplicate-imports": 0,
     // Temporarily disabled due to babel-eslint issues:
     "no-underscore-dangle": [
-      "error",
+      2,
       {
         "allowAfterThis": true
       }
     ],
     "padded-blocks": 0,
     "space-before-function-paren": [
-      "error",
+      2,
       "never"
     ]
   },
