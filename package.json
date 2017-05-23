@@ -1,6 +1,6 @@
 {
   "name": "rally-clientmetrics",
-  "version": "6.0.6",
+  "version": "7.0.0",
   "description": "Metrics aggregation for Rally Software",
   "main": "dist/rallymetrics.cjs.js",
   "jsnext:main": "dist/rallymetrics.es.js",
