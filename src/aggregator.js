@@ -16,7 +16,19 @@ const DEFAULT_STACK_LIMIT = 20;
  * Creates a version 4 UUID
  * @private
  */
-const getUniqueId = () => uuidV4();
+const getUUID = () => uuidV4();
+
+/**
+ * Creates a unsigned 64 bit int
+ * @private (cribbed from https://github.com/jaegertracing/jaeger-client-node/blob/master/src/util.js#L37)
+ */
+const getu64ID = () => {
+  let array = new Uint32Array(2); // eslint-disable-line prefer-const
+  const crypto = window.crypto ? window.crypto : window.msCrypto;
+  crypto.getRandomValues(array);
+
+  return array[0].toString() + array[1].toString();
+};
 
 const shouldRecordEvent = event =>
   !event.whenLongerThan || event.stop - event.start > event.whenLongerThan;
@@ -58,6 +70,8 @@ const shouldRecordEvent = event =>
  * @param {Object} [config.sender = BatchSender] Which sender to use. By default,
  *   a BatchSender will be used.
  * @param {Number} [config.stackLimit=50] The number of lines to keep in error stack traces
+ * @param {Boolean} [config.u64Ids] Use unsigned 64 bit ints for IDs instead of UUID's for open
+ * tracing compatibility
  */
 class Aggregator {
   constructor(config = {}) {
@@ -66,7 +80,8 @@ class Aggregator {
     this._flushInterval = config.flushInterval;
     this._ignoreStackMatcher = config.ignoreStackMatcher;
     this._actionStartTime = null;
-    this._browserTabId = getUniqueId();
+    this._idGenerator = config.u64Ids ? getu64ID : getUUID;
+    this._browserTabId = this._idGenerator();
     this._startingTime = Date.now();
     this._currentTraceId = null;
 
@@ -143,7 +158,7 @@ class Aggregator {
    */
   recordAction(options) {
     const cmp = options.component;
-    const traceId = getUniqueId();
+    const traceId = this._idGenerator();
     this._actionStartTime = this.getRelativeTime(options.startTime);
 
     const action = this._startEvent(
@@ -171,7 +186,7 @@ class Aggregator {
 
   /**
    * Records an event of type _error_.
-  * Any events that have not been sent to the beacon will be sent at this time.
+   * Any events that have not been sent to the beacon will be sent at this time.
    * @param {Error|String} e The Error object or string message.
    * @param {Object} [miscData={}] Key/Value pairs for any other fields you would like
    *   added to the event.
@@ -197,7 +212,7 @@ class Aggregator {
           error,
           stack,
           eType: 'error',
-          eId: getUniqueId(),
+          eId: this._idGenerator(),
           tId: traceId,
           start: startTime,
           stop: startTime,
@@ -247,7 +262,7 @@ class Aggregator {
         eType: 'load',
         start: this._actionStartTime,
         stop: this.getRelativeTime(options.stopTime),
-        eId: getUniqueId(),
+        eId: this._idGenerator(),
         tId: traceId,
         pId: traceId,
         cmpType: options.name,
@@ -291,7 +306,7 @@ class Aggregator {
     }
 
     const startTime = this.getRelativeTime(options.startTime);
-    const eventId = getUniqueId();
+    const eventId = this._idGenerator();
     const event = assign({}, options.miscData, {
       eType: options.type || 'load',
       cmp,

@@ -4,6 +4,7 @@ import { assign } from '../util';
 import { stub, useFakeTimers, useFakeXMLHttpRequest } from '../../test-utils/specHelper';
 
 const uuidFormat = /[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89aAbB][a-f0-9]{3}-[a-f0-9]{12}/;
+const u64Format = /[0-9]{2}/;
 let aggregator, sentEvents;
 
 class Panel {
@@ -169,13 +170,12 @@ describe('Aggregator', () => {
   });
   describe('client metric event properties', () => {
     let actionEvent, aggregator, appName, browserTabId, loadEvent;
-
-    beforeEach(() => {
+    const simualateEvent = config => {
       const parentPanel = new Panel();
       const childPanel = parentPanel.add({
         xtype: 'panel',
       });
-      aggregator = createAggregator();
+      aggregator = createAggregator(config);
       recordAction(aggregator, parentPanel);
       const span = aggregator.startSpan({
         component: childPanel,
@@ -186,49 +186,77 @@ describe('Aggregator', () => {
       actionEvent = sentEvents[0];
       loadEvent = sentEvents[1];
       browserTabId = aggregator._browserTabId;
-    });
+    };
+
+    // beforeEach(simualateEvent);
     it('should generate uuids for the event id and trace id', () => {
+      simualateEvent();
       expect(loadEvent.tId).toMatch(uuidFormat);
       expect(loadEvent.eId).toMatch(uuidFormat);
       expect(loadEvent.pId).toMatch(uuidFormat);
       expect(loadEvent.tabId).toMatch(uuidFormat);
     });
+    it('should generate u64ints given the configuration', () => {
+      window.crypto = {
+        getRandomValues: buff => {
+          buff[0] = Math.floor(Math.random() * 16);
+          buff[1] = Math.floor(Math.random() * 16);
+
+          return buff;
+        },
+      };
+      simualateEvent({ u64Ids: true });
+      expect(loadEvent.tId).toMatch(u64Format);
+      expect(loadEvent.eId).toMatch(u64Format);
+      expect(loadEvent.pId).toMatch(u64Format);
+      expect(loadEvent.tabId).toMatch(u64Format);
+    });
     it('should have trace id and event id for the action event', () => {
+      simualateEvent();
       expect(typeof actionEvent.tId).toBe('string');
       expect(actionEvent.eId).toEqual(actionEvent.tId);
     });
     it('should not set the parent id for the action event', () => {
+      simualateEvent();
       expect(actionEvent.pId).toBeUndefined();
     });
     it('should put the browser tab id on the events', () => {
+      simualateEvent();
       expect(actionEvent.tabId).toEqual(browserTabId);
       expect(loadEvent.tabId).toEqual(browserTabId);
     });
     it('should put the browser timestamp on the events', () => {
+      simualateEvent();
       expect(typeof loadEvent.bts).toBe('number');
       expect(typeof actionEvent.bts).toBe('number');
     });
     it('should parent the load event to the action event', () => {
+      simualateEvent();
       expect(typeof loadEvent.pId).toBe('string');
       expect(loadEvent.pId).toEqual(actionEvent.eId);
     });
     it('should have a common trace id for all the events', () => {
+      simualateEvent();
       expect(typeof loadEvent.tId).toBe('string');
       expect(typeof actionEvent.tId).toBe('string');
       expect(actionEvent.tId).toEqual(loadEvent.tId);
     });
     it('should have a component type for the load event', () => {
+      simualateEvent();
       expect(typeof loadEvent.cmpType).toBe('string');
     });
     it('should put the component hierarchy on the events', () => {
+      simualateEvent();
       expect(actionEvent.cmpH).toEqual('Panel');
       expect(loadEvent.cmpH).toEqual('Panel:Panel');
     });
     it('puts start time on all events', () => {
+      simualateEvent();
       expect(typeof actionEvent.start).toBe('number');
       expect(typeof loadEvent.start).toBe('number');
     });
     it('puts stop time on the load event', () => {
+      simualateEvent();
       expect(typeof loadEvent.stop).toBe('number');
     });
   });
@@ -378,7 +406,10 @@ describe('Aggregator', () => {
 
   describe('#recordError', () => {
     const limitStack = (stack, stackLimit) => {
-      return stack.split('\n').slice(0, stackLimit).join('\n');
+      return stack
+        .split('\n')
+        .slice(0, stackLimit)
+        .join('\n');
     };
 
     it('sends an error event', () => {
